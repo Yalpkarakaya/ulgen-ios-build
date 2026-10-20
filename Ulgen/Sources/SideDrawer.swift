@@ -4,6 +4,7 @@ public struct SideDrawer: View {
     @Binding var isOpen: Bool
     @ObservedObject var repo = ProjectRepository.shared
     @ObservedObject var mqtt = MqttSyncEngine.shared
+    @State private var comingSoonFeature: String? = nil
 
     var onSelectView: (String) -> Void
 
@@ -61,6 +62,7 @@ public struct SideDrawer: View {
                                     .background(Color.white.opacity(0.2))
                                     .clipShape(Circle())
                             }
+                            .buttonStyle(.scaleSpring(scale: 0.88))
                         }
 
                         // MQTT / Sync Status Badge
@@ -86,32 +88,117 @@ public struct SideDrawer: View {
                         )
                     )
 
-                    // MARK: - Menu Items
+                    // MARK: - 7 Sections Menu Items (1:1 with Android SideDrawer.kt)
                     ScrollView {
-                        VStack(spacing: 4) {
-                            drawerButton(icon: "folder", title: "Projelerim", badge: "\(repo.activeProjects.count)", id: "dashboard")
-                            drawerButton(icon: "archivebox", title: "Arşivlenmiş Projeler", badge: "\(repo.archivedProjects.count)", id: "archive")
+                        VStack(alignment: .leading, spacing: 2) {
+                            // 1. HESAP & BULUT EŞİTLEME
+                            sectionHeader("HESAP & BULUT EŞİTLEME")
+                            drawerActionItem(icon: "arrow.triangle.2.circlepath", title: "Bulutla Eşitle", subtitle: "Cihazlar arası anlık senkronizasyon") {
+                                Haptics.light()
+                                mqtt.requestInitialSync()
+                            }
+                            drawerActionItem(icon: "icloud.and.arrow.down", title: "Buluttan İndir", subtitle: "Sunucudaki ana kopyayı cihaza çeker") {
+                                Haptics.light()
+                                mqtt.requestInitialSync()
+                            }
+
+                            divider
+
+                            // 2. PROJELER
+                            sectionHeader("PROJELER")
+                            drawerButton(icon: "folder", title: "Tüm Projeler (Dashboard)", badge: "\(repo.activeProjects.count)", id: "dashboard")
+                            drawerPlaceholderItem(icon: "chart.bar.xaxis", title: "İstatistikler")
+                            drawerPlaceholderItem(icon: "tag", title: "Etiketler")
+                            drawerPlaceholderItem(icon: "square.grid.2x2", title: "Kategoriler")
+                            drawerButton(icon: "archivebox", title: "Arşivdeki Projeler", badge: "\(repo.archivedProjects.count)", id: "archive")
                             drawerButton(icon: "trash", title: "Çöp Kutusu", badge: "\(repo.trashedProjects.count)", id: "trash")
-                            drawerButton(icon: "person.crop.circle", title: "Profil & Hesap Eşleme", id: "profile")
-                            drawerButton(icon: "wrench.and.screwdriver", title: "Admin & API Havuzu", id: "admin")
+                            drawerPlaceholderItem(icon: "qrcode.viewfinder", title: "QR Kod Tarayıcı")
+
+                            divider
+
+                            // 3. HATIRLATICILAR
+                            sectionHeader("HATIRLATICILAR")
+                            drawerPlaceholderItem(icon: "calendar", title: "Takvim")
+                            drawerPlaceholderItem(icon: "clock", title: "Hatırlatıcılar")
+
+                            divider
+
+                            // 4. YÖNETİM
+                            sectionHeader("YÖNETİM")
+                            drawerButton(icon: "wrench.and.screwdriver", title: "Admin Paneli", id: "admin")
+
+                            divider
+
+                            // 5. AYARLAR
+                            sectionHeader("AYARLAR")
+                            drawerButton(icon: "gearshape", title: "Profil ve Ayarlar", id: "profile")
+                            drawerActionItem(icon: "paintpalette", title: "Tema & Görünüm", subtitle: repo.isDarkMode ? "Karanlık Mod (Açık)" : "Aydınlık Mod (Açık)") {
+                                Haptics.light()
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                    repo.isDarkMode.toggle()
+                                }
+                            }
+                            drawerButton(icon: "externaldrive", title: "Veri Yönetimi", id: "profile")
+
+                            divider
+
+                            // 6. DESTEK
+                            sectionHeader("DESTEK")
+                            drawerPlaceholderItem(icon: "questionmark.circle", title: "Yardım Merkezi")
+                            drawerPlaceholderItem(icon: "bubble.left.and.bubble.right", title: "Sık Sorulan Sorular")
+                            drawerPlaceholderItem(icon: "envelope", title: "İletişim")
+                            drawerPlaceholderItem(icon: "square.and.pencil", title: "Geri Bildirim")
+
+                            divider
+
+                            // 7. HAKKINDA
+                            sectionHeader("HAKKINDA")
+                            drawerPlaceholderItem(icon: "info.circle", title: "Hakkımızda")
+                            drawerPlaceholderItem(icon: "shield", title: "Gizlilik Politikası")
+                            drawerPlaceholderItem(icon: "doc.text", title: "Kullanım Koşulları")
                         }
-                        .padding(14)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 10)
                     }
 
                     Spacer()
 
-                    // MARK: - Footer
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Ülgen iOS Native v1.2.2")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
-                        Text("Donanım & Mühendislik Proje Takip Sistemi")
-                            .font(.system(size: 10))
-                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                    // MARK: - Footer with Reset Button & Version Info
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button(action: {
+                            Haptics.heavy()
+                            repo.resetAllData()
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                isOpen = false
+                            }
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "trash.slash.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(Color(hex: "#EF4444"))
+                                Text("Her Şeyi Sıfırla")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(Color(hex: "#EF4444"))
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(Color(hex: "#EF4444").opacity(0.12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(hex: "#EF4444").opacity(0.25), lineWidth: 1)
+                            )
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.scaleSpring(scale: 0.96))
+
+                        Text("Versiyon 4.5.0 - Inline UI & DnD")
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(hex: "#9CA3AF"))
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(repo.isDarkMode ? AppTheme.cardSurfaceDark : AppTheme.bgLight)
+                    .padding(14)
+                    .background(repo.isDarkMode ? Color(hex: "#1E1B18") : Color(hex: "#FAF8F5"))
                     .overlay(Rectangle().frame(height: 1).foregroundColor(AppTheme.borderSubtle(isDark: repo.isDarkMode)), alignment: .top)
                 }
                 .frame(width: 310)
@@ -119,9 +206,44 @@ public struct SideDrawer: View {
                 .ignoresSafeArea(edges: .vertical)
                 .transition(.move(edge: .trailing))
             }
+
+            // MARK: - Coming Soon Modal Overlay
+            if let feature = comingSoonFeature {
+                ComingSoonModal(
+                    featureName: feature,
+                    isDarkMode: repo.isDarkMode,
+                    onDismiss: {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                            comingSoonFeature = nil
+                        }
+                    }
+                )
+                .transition(.opacity)
+                .zIndex(100)
+            }
         }
     }
 
+    // Section Header (Matching DrawerSectionHeader in Android)
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+    }
+
+    // Divider (Matching DrawerDivider in Android)
+    private var divider: some View {
+        Rectangle()
+            .fill(repo.isDarkMode ? Color.white.opacity(0.08) : Color(hex: "#E2DDD5"))
+            .frame(height: 1)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+    }
+
+    // Navigation Button (Dashboard, Archive, Trash, Profile, Admin)
     private func drawerButton(icon: String, title: String, badge: String? = nil, id: String) -> some View {
         Button(action: {
             Haptics.light()
@@ -157,9 +279,70 @@ public struct SideDrawer: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 11)
+            .padding(.vertical, 10)
             .background(Color.clear)
             .cornerRadius(10)
         }
+        .buttonStyle(.scaleSpring(scale: 0.97))
+    }
+
+    // Placeholder Button (Triggers ComingSoonModal)
+    private func drawerPlaceholderItem(icon: String, title: String) -> some View {
+        Button(action: {
+            Haptics.light()
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                comingSoonFeature = title
+            }
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(AppTheme.primary)
+                    .frame(width: 24)
+
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
+
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.clear)
+            .cornerRadius(10)
+        }
+        .buttonStyle(.scaleSpring(scale: 0.97))
+    }
+
+    // Action Item (Sync, Cloud Pull, Theme Toggle)
+    private func drawerActionItem(icon: String, title: String, subtitle: String? = nil, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(AppTheme.primary)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
+
+                    if let sub = subtitle {
+                        Text(sub)
+                            .font(.system(size: 11))
+                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, subtitle != nil ? 8 : 10)
+            .background(Color.clear)
+            .cornerRadius(10)
+        }
+        .buttonStyle(.scaleSpring(scale: 0.97))
     }
 }

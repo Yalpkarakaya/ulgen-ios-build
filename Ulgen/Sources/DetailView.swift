@@ -391,7 +391,7 @@ public struct DetailView: View {
                     .font(.system(size: 18))
                     .foregroundColor(item.completed ? Color(hex: "#10B981") : AppTheme.textMuted(isDark: repo.isDarkMode))
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(.scaleSpring(scale: 0.88))
 
             // Title with Strikethrough
             Text(item.title)
@@ -404,25 +404,31 @@ public struct DetailView: View {
 
             // Quantity Stepper
             HStack(spacing: 4) {
-                Button("-") {
+                Button(action: {
                     repo.updateItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: -1)
+                }) {
+                    Text("-")
+                        .font(.system(size: 11, weight: .bold))
+                        .frame(width: 20, height: 20)
+                        .background(repo.isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+                        .cornerRadius(4)
                 }
-                .font(.system(size: 11, weight: .bold))
-                .frame(width: 20, height: 20)
-                .background(repo.isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
-                .cornerRadius(4)
+                .buttonStyle(.scaleSpring(scale: 0.88))
 
                 Text("\(item.quantity)")
                     .font(.system(size: 12, weight: .semibold))
                     .frame(minWidth: 16)
 
-                Button("+") {
+                Button(action: {
                     repo.updateItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: 1)
+                }) {
+                    Text("+")
+                        .font(.system(size: 11, weight: .bold))
+                        .frame(width: 20, height: 20)
+                        .background(repo.isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+                        .cornerRadius(4)
                 }
-                .font(.system(size: 11, weight: .bold))
-                .frame(width: 20, height: 20)
-                .background(repo.isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
-                .cornerRadius(4)
+                .buttonStyle(.scaleSpring(scale: 0.88))
             }
             .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
 
@@ -434,7 +440,7 @@ public struct DetailView: View {
                     .font(.system(size: 11))
                     .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode).opacity(0.6))
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(.scaleSpring(scale: 0.88))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

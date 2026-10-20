@@ -363,3 +363,34 @@ public extension View {
         self.modifier(NeumorphicCardModifier(isDark: isDark, cornerRadius: cornerRadius))
     }
 }
+
+// MARK: - 1:1 Scale & Spring Button Press Animation matching Compose
+public struct ScaleSpringButtonStyle: ButtonStyle {
+    public var pressedScale: CGFloat
+    public var dampingFraction: Double
+    public var response: Double
+
+    public init(pressedScale: CGFloat = 0.96, dampingFraction: Double = 0.65, response: Double = 0.25) {
+        self.pressedScale = pressedScale
+        self.dampingFraction = dampingFraction
+        self.response = response
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? pressedScale : 1.0)
+            .animation(.spring(response: response, dampingFraction: dampingFraction), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { isPressed in
+                if isPressed {
+                    Haptics.light()
+                }
+            }
+    }
+}
+
+public extension ButtonStyle where Self == ScaleSpringButtonStyle {
+    static var scaleSpring: ScaleSpringButtonStyle { ScaleSpringButtonStyle() }
+    static func scaleSpring(scale: CGFloat = 0.96) -> ScaleSpringButtonStyle {
+        ScaleSpringButtonStyle(pressedScale: scale)
+    }
+}

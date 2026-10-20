@@ -209,6 +209,7 @@ public struct DashboardView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#E2DDD5"), lineWidth: 1))
                             .shadow(color: repo.isDarkMode ? Color.black.opacity(0.3) : Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                     }
+                    .buttonStyle(.scaleSpring(scale: 0.90))
 
                     // Notification Bell
                     Button(action: {
@@ -233,6 +234,7 @@ public struct DashboardView: View {
                             }
                         }
                     }
+                    .buttonStyle(.scaleSpring(scale: 0.90))
 
                     // Hamburger Menu (Opens Side Drawer from RIGHT)
                     Button(action: {
@@ -250,6 +252,7 @@ public struct DashboardView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#E2DDD5"), lineWidth: 1))
                             .shadow(color: repo.isDarkMode ? Color.black.opacity(0.3) : Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                     }
+                    .buttonStyle(.scaleSpring(scale: 0.90))
                 }
             }
             .padding(.horizontal, 16)
@@ -325,6 +328,7 @@ public struct DashboardView: View {
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(showSortPanel ? (repo.isDarkMode ? Color(hex: "#52545E") : Color(hex: "#8C867B")) : AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
             }
             .frame(maxWidth: .infinity)
+            .buttonStyle(.scaleSpring(scale: 0.97))
 
             // Sağ: Filtreler Butonu
             let activeFilters = (repo.selectedCategory != "all" ? 1 : 0) + (repo.selectedPriority != "all" ? 1 : 0)
@@ -366,6 +370,7 @@ public struct DashboardView: View {
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(showFilterPanel ? (repo.isDarkMode ? Color(hex: "#52545E") : Color(hex: "#8C867B")) : AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
             }
             .frame(maxWidth: .infinity)
+            .buttonStyle(.scaleSpring(scale: 0.97))
         }
     }
 
@@ -397,6 +402,7 @@ public struct DashboardView: View {
                     .background(isSelected ? AppTheme.primary.opacity(0.1) : Color.clear)
                     .cornerRadius(8)
                 }
+                .buttonStyle(.scaleSpring(scale: 0.97))
             }
         }
         .padding(10)
@@ -430,6 +436,7 @@ public struct DashboardView: View {
                                     .background(isSel ? AppTheme.primary : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
                                     .cornerRadius(12)
                             }
+                            .buttonStyle(.scaleSpring(scale: 0.94))
                         }
                     }
                 }
@@ -456,6 +463,7 @@ public struct DashboardView: View {
                                 .background(isSel ? AppTheme.primary : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
                                 .cornerRadius(12)
                         }
+                        .buttonStyle(.scaleSpring(scale: 0.94))
                     }
                 }
             }
@@ -475,6 +483,7 @@ public struct DashboardView: View {
                         .background(Color(hex: "#EF4444").opacity(0.1))
                         .cornerRadius(10)
                 }
+                .buttonStyle(.scaleSpring(scale: 0.97))
             }
         }
         .padding(12)
@@ -804,7 +813,7 @@ public struct ProjectCardView: View {
     private func formatDateSummary(startDate: String?, deadline: String?, createdAt: Int64) -> String {
         let start = formatShort(startDate) ?? "Belirtilmemiş"
         let end = formatShort(deadline) ?? "Belirtilmemiş"
-        return "\(start) ➔ \(end)"
+        return "\(start) → \(end)"
     }
 
     private func formatShort(_ dateStr: String?) -> String? {
