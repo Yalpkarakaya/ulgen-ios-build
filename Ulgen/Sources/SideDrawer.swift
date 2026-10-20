@@ -133,11 +133,6 @@ public struct SideDrawer: View {
                                     }
                                     onSelectView("profile")
                                 }
-                                    mqtt.subscribeToAccountChannel()
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        isOpen = false
-                                    }
-                                }
                             }
 
                             divider
