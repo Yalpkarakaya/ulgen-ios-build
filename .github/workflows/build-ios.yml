@@ -1,4 +1,4 @@
-name: Build iOS IPA and Virtual Test
+name: Build Native iOS IPA and Virtual Test
 
 on:
   push:
@@ -79,11 +79,12 @@ jobs:
             Ulgen.ipa
             screenshot_iphone.png
 
-      - name: Create Release
+      - name: Create or Update Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v1.0.0 Ulgen.ipa screenshot_iphone.png \
-            --title "Ülgen iOS v1.0.0 (iPhone 17 & SideStore Uyumlu)" \
-            --notes "SideStore ile iPhone 17'ye doğrudan yüklenmeye hazır imzasız .ipa paketi. Cihazlar arası anlık MQTT senkronizasyonu ve Taptic Engine desteği entegredir." \
+          gh release delete v1.1.0 --yes || true
+          gh release create v1.1.0 Ulgen.ipa screenshot_iphone.png \
+            --title "Ülgen iOS v1.1.0 (Native Kotlin Parity & SideStore Uyumlu)" \
+            --notes "Android Kotlin (takip-android) mimarisinden 1:1 referansla geliştirilen yerel SwiftUI iOS paketi. HiveMQ MQTT canlı senkronizasyon, Taptic Engine ve SideStore otomatik yenileme desteği içerir." \
             --target ${{ github.sha }} || true

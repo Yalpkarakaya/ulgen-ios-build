@@ -3,7 +3,6 @@ options:
   bundleIdPrefix: com.yalp
   deploymentTarget:
     iOS: "16.0"
-  xcodeVersion: "15.0"
 targets:
   Ulgen:
     type: application
@@ -12,8 +11,6 @@ targets:
     sources:
       - path: Ulgen/Sources
       - path: Ulgen/Resources/Assets.xcassets
-      - path: Ulgen/Resources/www
-        type: folder
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.yalp.ulgen
       PRODUCT_NAME: Ulgen
