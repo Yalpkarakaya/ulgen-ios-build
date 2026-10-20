@@ -158,7 +158,7 @@ public class ProjectRepository: ObservableObject {
                                         Item(title: "Dispatcher ve Scope yönetimi", completed: true, quantity: 1),
                                         Item(title: "StateFlow ve SharedFlow kullanımı", completed: true, quantity: 1)
                                     ],
-                                    notes: [Note(content = "StateFlow, UI state'lerini saklamak ve gözlemlemek için en iyi pratiktir.")]
+                                    notes: [Note(content: "StateFlow, UI state'lerini saklamak ve gözlemlemek için en iyi pratiktir.")]
                                 ),
                                 SubTopic(
                                     id: "st1-2",
@@ -457,5 +457,16 @@ public class ProjectRepository: ObservableObject {
         if total > 0 {
             projects[pIdx].progress = Int(Double(completed) / Double(total) * 100.0)
         }
+    }
+
+    public func addChatMessage(projectId: String, role: String, content: String) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        let newMsg = ChatMessage(role: role, content: content)
+        if projects[pIdx].chatSessions.isEmpty {
+            projects[pIdx].chatSessions.append(ChatSession(title: "Mühendislik Sohbeti", messages: [newMsg]))
+        } else {
+            projects[pIdx].chatSessions[0].messages.append(newMsg)
+        }
+        saveLocalData()
     }
 }
