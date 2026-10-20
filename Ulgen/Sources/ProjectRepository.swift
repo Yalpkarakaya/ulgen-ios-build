@@ -490,4 +490,11 @@ public class ProjectRepository: ObservableObject {
         }
         saveLocalData()
     }
+
+    public func resetAllData() {
+        projects.removeAll()
+        deletedProjectIds.removeAll()
+        notifications.removeAll()
+        saveLocalData()
+    }
 }
