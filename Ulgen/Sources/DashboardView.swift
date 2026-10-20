@@ -331,24 +331,25 @@ public struct DashboardView: View {
                     showSortPanel.toggle()
                 }
             }) {
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Image(systemName: "arrow.up.arrow.down")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(showSortPanel || repo.sortOption != "custom" ? AppTheme.textHeading(isDark: repo.isDarkMode) : AppTheme.textMuted(isDark: repo.isDarkMode))
 
                     Text("Sıralama Ölçütü")
-                        .font(.system(size: 13, weight: showSortPanel ? .bold : .semibold))
+                        .font(.system(size: 12.5, weight: showSortPanel ? .bold : .semibold))
                         .foregroundColor(showSortPanel || repo.sortOption != "custom" ? AppTheme.textHeading(isDark: repo.isDarkMode) : AppTheme.textBody(isDark: repo.isDarkMode))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
 
                     Spacer()
 
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
                         .rotationEffect(.degrees(showSortPanel ? 180 : 0))
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 10)
                 .frame(height: 44)
                 .background(showSortPanel ? (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")) : AppTheme.card(isDark: repo.isDarkMode))
                 .cornerRadius(16)
@@ -365,14 +366,16 @@ public struct DashboardView: View {
                     showFilterPanel.toggle()
                 }
             }) {
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(showFilterPanel || activeFilters > 0 ? AppTheme.textHeading(isDark: repo.isDarkMode) : AppTheme.textMuted(isDark: repo.isDarkMode))
 
                     Text("Filtreler")
-                        .font(.system(size: 13, weight: showFilterPanel ? .bold : .semibold))
+                        .font(.system(size: 12.5, weight: showFilterPanel ? .bold : .semibold))
                         .foregroundColor(showFilterPanel || activeFilters > 0 ? AppTheme.textHeading(isDark: repo.isDarkMode) : AppTheme.textBody(isDark: repo.isDarkMode))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
 
                     if activeFilters > 0 {
                         Text("\(activeFilters)")
@@ -386,11 +389,11 @@ public struct DashboardView: View {
                     Spacer()
 
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
                         .rotationEffect(.degrees(showFilterPanel ? 180 : 0))
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 10)
                 .frame(height: 44)
                 .background(showFilterPanel ? (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")) : AppTheme.card(isDark: repo.isDarkMode))
                 .cornerRadius(16)
