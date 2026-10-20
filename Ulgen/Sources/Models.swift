@@ -336,12 +336,30 @@ public struct ProjectMember: Codable, Identifiable, Hashable {
 }
 
 public struct CustomColorConfig: Codable, Hashable {
+    public var primary: String?
     public var primaryColor: String?
     public var accentColor: String?
+    public var cardBg: String?
+    public var border: String?
+    public var progressBar: String?
+    public var textColor: String?
 
-    public init(primaryColor: String? = nil, accentColor: String? = nil) {
-        self.primaryColor = primaryColor
+    public init(
+        primary: String? = nil,
+        primaryColor: String? = nil,
+        accentColor: String? = nil,
+        cardBg: String? = nil,
+        border: String? = nil,
+        progressBar: String? = nil,
+        textColor: String? = nil
+    ) {
+        self.primary = primary
+        self.primaryColor = primaryColor ?? primary
         self.accentColor = accentColor
+        self.cardBg = cardBg
+        self.border = border
+        self.progressBar = progressBar
+        self.textColor = textColor
     }
 }
 

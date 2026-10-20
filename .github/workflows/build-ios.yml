@@ -40,18 +40,22 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Boot Virtual iPhone and Capture Screenshot
+      - name: Boot Modern Virtual iPhone (19.5:9 Aspect Ratio) and Capture Screenshot
         run: |
-          DEVICE_ID=$(xcrun simctl list devices available | grep "iPhone" | head -n 1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
+          DEVICE_ID=$(xcrun simctl list devices available | grep -E "iPhone 15 Pro|iPhone 15|iPhone 16" | head -n 1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
+          if [ -z "$DEVICE_ID" ]; then
+            DEVICE_ID=$(xcrun simctl list devices available | grep "iPhone" | head -n 1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
+          fi
           echo "Selected virtual device ID: $DEVICE_ID"
           xcrun simctl boot "$DEVICE_ID" || true
-          sleep 10
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          sleep 4
           xcrun simctl install "$DEVICE_ID" build_sim/Build/Products/Release-iphonesimulator/Ulgen.app
           xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen
           sleep 6
-          xcrun simctl io "$DEVICE_ID" screenshot screenshot_iphone.png || xcrun simctl io booted screenshot screenshot_iphone.png
+          xcrun simctl io "$DEVICE_ID" screenshot screenshot_iphone.png
           ls -lh screenshot_iphone.png
-          echo "Virtual iPhone screenshot captured successfully!"
+          echo "Modern Virtual iPhone screenshot captured successfully!"
 
       - name: Build for ARM64 iOS Device
         run: |
@@ -83,8 +87,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.2.0 --yes || true
-          gh release create v1.2.0 Ulgen.ipa screenshot_iphone.png \
-            --title "Ülgen iOS v1.2.0 (Full Production Quality Native IPA)" \
-            --notes "Tam donanımlı yerel SwiftUI mimarisi: MChat AI Asistanı, Raporlama & Paylaşım, Aşamalar & Görev Ağacı, Arşiv & Çöp Kutusu, Admin Konsolu ve HiveMQ MQTT canlı senkronizasyon." \
+          gh release delete v1.2.2 --yes || true
+          gh release create v1.2.2 Ulgen.ipa screenshot_iphone.png \
+            --title "Ülgen iOS v1.2.2 (1:1 Android Parity Production IPA)" \
+            --notes "1:1 Android Kotlin/Compose paritesi: Bronz/amber başlık, 3'lü buton sağ üst grup, tam arama çubuğu, Sıralama Ölçütü ve Filtreler akordeon panelleri, hücresel veri sinyal çubukları, 3 seviyeli aşama ağacı ve tamamlanma üzeri çizili yeşil stiller, 4 sekmeli renk özelleştirme, 5 adımlı AI yol haritası sihirbazı ve HiveMQ MQTT canlı senkronizasyon." \
             --target ${{ github.sha }} || true

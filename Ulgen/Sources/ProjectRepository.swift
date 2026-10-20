@@ -10,9 +10,10 @@ public class ProjectRepository: ObservableObject {
     @Published public var notifications: [AppNotification] = []
     @Published public var apiKeys: ApiKeysConfig = ApiKeysConfig()
     @Published public var isDarkMode: Bool = true
-    @Published public var activeCategory: String = "Tümü"
+    @Published public var selectedCategory: String = "all"
+    @Published public var selectedPriority: String = "all"
     @Published public var searchQuery: String = ""
-    @Published public var sortBy: String = "name_asc" // Deterministik sıralama kuralı: LOWER(name) ASC
+    @Published public var sortOption: String = "custom" // "custom", "alpha_asc", "alpha_desc", "update_desc", "update_asc", "priority_asc", "priority_desc", "deadline_asc", "deadline_asc_rev"
 
     private let fileURL: URL
     private let deletedFileURL: URL
@@ -28,43 +29,169 @@ public class ProjectRepository: ObservableObject {
         loadLocalData()
     }
 
+    // MARK: - Filtered & Sorted Projects
+    public var activeProjects: [Project] {
+        projects.filter { !$0.archived && !$0.deleted }
+    }
+
+    public var archivedProjects: [Project] {
+        projects.filter { $0.archived && !$0.deleted }
+    }
+
+    public var trashedProjects: [Project] {
+        projects.filter { $0.deleted }
+    }
+
+    public var filteredProjects: [Project] {
+        let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let matched = activeProjects.filter { p in
+            let matchesSearch: Bool = {
+                if q.isEmpty { return true }
+                if p.title.lowercased().contains(q) { return true }
+                if p.description.lowercased().contains(q) { return true }
+                return p.mainTopics.contains { topic in
+                    topic.title.lowercased().contains(q) ||
+                    topic.subTopics.contains { sub in
+                        sub.title.lowercased().contains(q) ||
+                        sub.items.contains { item in item.title.lowercased().contains(q) }
+                    }
+                }
+            }()
+
+            let normCat = normalizeCategory(p.category)
+            let matchesCat = (selectedCategory == "all") || (normCat == selectedCategory)
+
+            let normPrio = normalizePriority(p.priority)
+            let matchesPrio = (selectedPriority == "all") || (normPrio == selectedPriority)
+
+            return matchesSearch && matchesCat && matchesPrio
+        }
+
+        // Apply sorting: Pinned always first!
+        let pinned = matched.filter { $0.pinned }
+        let unpinned = matched.filter { !$0.pinned }
+
+        return sortList(pinned) + sortList(unpinned)
+    }
+
+    private func sortList(_ list: [Project]) -> [Project] {
+        switch sortOption {
+        case "alpha_asc":
+            return list.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case "alpha_desc":
+            return list.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
+        case "update_desc":
+            return list.sorted { $0.lastUpdated > $1.lastUpdated }
+        case "update_asc":
+            return list.sorted { $0.lastUpdated < $1.lastUpdated }
+        case "priority_asc":
+            return list.sorted { priorityScore($0.priority) < priorityScore($1.priority) }
+        case "priority_desc":
+            return list.sorted { priorityScore($0.priority) > priorityScore($1.priority) }
+        case "deadline_asc":
+            return list.sorted { ($0.deadline ?? "9999") < ($1.deadline ?? "9999") }
+        case "deadline_asc_rev":
+            return list.sorted { ($0.deadline ?? "0000") > ($1.deadline ?? "0000") }
+        default:
+            return list // "custom" preserves drag-and-drop order
+        }
+    }
+
+    private func priorityScore(_ priority: String) -> Int {
+        switch normalizePriority(priority) {
+        case "urgent": return 4
+        case "high": return 3
+        case "normal": return 2
+        case "low": return 1
+        default: return 2
+        }
+    }
+
+    public func normalizeCategory(_ cat: String?) -> String {
+        let norm = (cat ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if norm.contains("ders") || norm == "blue" { return "ders" }
+        if norm.contains("proje") || norm.contains("yazilim") || norm == "green" { return "proje" }
+        if norm.contains("meslek") || norm.contains("kariyer") || norm == "purple" { return "mesleki" }
+        if norm.contains("hobi") || norm == "orange" { return "hobi" }
+        return "diger"
+    }
+
+    public func normalizePriority(_ prio: String?) -> String {
+        let norm = (prio ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch norm {
+        case "low", "dusuk", "düşük", "green": return "low"
+        case "normal", "orta", "medium", "yellow": return "normal"
+        case "high", "yuksek", "yüksek", "orange": return "high"
+        case "urgent", "acil", "red", "very_high": return "urgent"
+        default: return "normal"
+        }
+    }
+
     // MARK: - Data Persistence
     public func loadLocalData() {
         if let data = try? Data(contentsOf: fileURL),
-           let loaded = try? JSONDecoder().decode([Project].self, from: data) {
+           let loaded = try? JSONDecoder().decode([Project].self, from: data), !loaded.isEmpty {
             self.projects = loaded
         } else {
-            // İlk açılış: Donanım Mühendisliği Başlangıç Projeleri
+            // Android ProjectFileStore.kt ile 1:1 Tam Eşleşen Başlangıç Verileri
             self.projects = [
                 Project(
-                    title: "1MHz GaN Senkron Buck-Boost",
-                    description: "EPC2001C GaN FET'ler ve STM32G474 HRTIM tabanlı yüksek frekans güç katı tasarımı.",
-                    category: "Donanım",
+                    id: "sample-p1-kotlin",
+                    title: "Kotlin & Jetpack Compose ile Android Geliştirme",
+                    description: "Modern deklaratif UI mimarisi ve saf Kotlin ile uçtan uca native mobil uygulama geliştirme süreci.",
+                    category: "proje",
                     priority: "high",
-                    progress: 65,
+                    startDate: "2026-01-10",
+                    deadline: "2026-12-31",
+                    progress: 50,
                     mainTopics: [
                         MainTopic(
-                            title: "Şematik ve Güç Katı",
-                            description: "LTspice simülasyonları ve Altium şematik girişi.",
+                            id: "t1",
+                            title: "1. Temel Kotlin ve Modern Android Mimarisi",
+                            description: "Coroutines, Flow, MVVM ve State yönetimi prensipleri.",
                             subTopics: [
                                 SubTopic(
-                                    title: "MOSFET Sürücü Devresi",
+                                    id: "st1-1",
+                                    title: "Kotlin Coroutines & Asenkron Programlama",
+                                    completed: true,
                                     items: [
-                                        Item(title: "UCC27282 bootstrap kondansatör hesabı", completed: true, quantity: 2),
-                                        Item(title: "Gate dirençleri sönümleme testi", completed: true, quantity: 4),
-                                        Item(title: "Dead-time optimizasyonu (HRTIM)", completed: false, quantity: 1)
+                                        Item(title: "Dispatcher ve Scope yönetimi", completed: true, quantity: 1),
+                                        Item(title: "StateFlow ve SharedFlow kullanımı", completed: true, quantity: 1)
+                                    ],
+                                    notes: [Note(content = "StateFlow, UI state'lerini saklamak ve gözlemlemek için en iyi pratiktir.")]
+                                ),
+                                SubTopic(
+                                    id: "st1-2",
+                                    title: "Jetpack Compose Deklaratif UI Temelleri",
+                                    completed: true,
+                                    items: [
+                                        Item(title: "Composable fonksiyonlar ve Modifier zincirleri", completed: true, quantity: 1),
+                                        Item(title: "State Hoisting ve Unidirectional Data Flow", completed: true, quantity: 1)
                                     ]
                                 )
                             ]
                         ),
                         MainTopic(
-                            title: "PCB Layout ve Termal Tasarım",
-                            description: "4 katmanlı 2oz bakır empedans kontrollü kart.",
+                            id: "t2",
+                            title: "2. Veri Yönetimi ve Yerel Depolama",
+                            description: "DataStore, Room ve Dosya Tabanlı JSON depolama.",
                             subTopics: [
                                 SubTopic(
-                                    title: "Termal Via Yerleşimi",
+                                    id: "st2-1",
+                                    title: "Preferences & Proto DataStore",
+                                    completed: false,
                                     items: [
-                                        Item(title: "GaN pedleri altına 0.3mm via dizilimi", completed: false, quantity: 16)
+                                        Item(title: "Kullanıcı ayarlarının asenkron saklanması", completed: false, quantity: 1),
+                                        Item(title: "Karanlık/Aydınlık mod persistansı", completed: true, quantity: 1)
+                                    ]
+                                ),
+                                SubTopic(
+                                    id: "st2-2",
+                                    title: "Gist / Bulut Yedekleme Entegrasyonu",
+                                    completed: false,
+                                    items: [
+                                        Item(title: "GitHub Gist REST API entegrasyonu", completed: false, quantity: 1),
+                                        Item(title: "Otomatik çift yönlü senkronizasyon", completed: false, quantity: 1)
                                     ]
                                 )
                             ]
@@ -73,48 +200,50 @@ public class ProjectRepository: ObservableObject {
                     pinned: true
                 ),
                 Project(
-                    title: "STM32 CAN-FD Telemetri Ünitesi",
-                    description: "Atölye tezgahı ve araç sensörleri için izole CAN-FD / BLE veri kaydedici.",
-                    category: "Gömülü",
+                    id: "sample-p2-ai",
+                    title: "Yapay Zeka & Derin Öğrenme Çalışmaları",
+                    description: "Modern transformer mimarileri ve makine öğrenimi modelleri üzerine araştırma ve uygulama planı.",
+                    category: "ders",
                     priority: "medium",
-                    progress: 30,
+                    startDate: "2026-03-01",
+                    deadline: "2026-10-15",
+                    progress: 25,
                     mainTopics: [
                         MainTopic(
-                            title: "Firmware Geliştirme",
-                            description: "FreeRTOS ve RingBuffer kuyruk mimarisi.",
+                            id: "t2-1",
+                            title: "1. Matematiksel Temeller & Python Kütüphaneleri",
+                            description: "Lineer cebir, olasılık ve PyTorch temelleri.",
                             subTopics: [
                                 SubTopic(
-                                    title: "CAN-FD Driver",
+                                    id: "st2-1-1",
+                                    title: "PyTorch Tensor İşlemleri & Autograd",
+                                    completed: false,
                                     items: [
-                                        Item(title: "FDCAN1 filtre tablosu yapılandırması", completed: true, quantity: 1),
-                                        Item(title: "DMA tabanlı UART köprüsü", completed: false, quantity: 1)
+                                        Item(title: "Tensor manipülasyonları ve GPU kullanımı", completed: true, quantity: 1),
+                                        Item(title: "Geriye yayılım (Backpropagation) hesapları", completed: false, quantity: 1)
                                     ]
                                 )
                             ]
                         )
-                    ]
+                    ],
+                    pinned: false
                 )
             ]
             saveLocalData()
         }
 
-        if let delData = try? Data(contentsOf: deletedFileURL),
-           let delLoaded = try? JSONDecoder().decode([DeletedItemRecord].self, from: delData) {
-            self.deletedProjectIds = delLoaded
+        // Load other tables
+        if let data = try? Data(contentsOf: deletedFileURL),
+           let loaded = try? JSONDecoder().decode([DeletedItemRecord].self, from: data) {
+            self.deletedProjectIds = loaded
         }
-
-        if let notifData = try? Data(contentsOf: notifFileURL),
-           let notifLoaded = try? JSONDecoder().decode([AppNotification].self, from: notifData) {
-            self.notifications = notifLoaded
-        } else {
-            self.notifications = [
-                AppNotification(title: "Ülgen iOS Aktif", message: "Yerel SwiftUI mimarisi ve MQTT canlı senkronizasyon motoru devrede.", type: "info")
-            ]
+        if let data = try? Data(contentsOf: notifFileURL),
+           let loaded = try? JSONDecoder().decode([AppNotification].self, from: data) {
+            self.notifications = loaded
         }
-
-        if let keysData = try? Data(contentsOf: apiKeysFileURL),
-           let keysLoaded = try? JSONDecoder().decode(ApiKeysConfig.self, from: keysData) {
-            self.apiKeys = keysLoaded
+        if let data = try? Data(contentsOf: apiKeysFileURL),
+           let loaded = try? JSONDecoder().decode(ApiKeysConfig.self, from: data) {
+            self.apiKeys = loaded
         }
     }
 
@@ -122,14 +251,14 @@ public class ProjectRepository: ObservableObject {
         if let data = try? JSONEncoder().encode(projects) {
             try? data.write(to: fileURL)
         }
-        if let delData = try? JSONEncoder().encode(deletedProjectIds) {
-            try? delData.write(to: deletedFileURL)
+        if let data = try? JSONEncoder().encode(deletedProjectIds) {
+            try? data.write(to: deletedFileURL)
         }
-        if let notifData = try? JSONEncoder().encode(notifications) {
-            try? notifData.write(to: notifFileURL)
+        if let data = try? JSONEncoder().encode(notifications) {
+            try? data.write(to: notifFileURL)
         }
-        if let keysData = try? JSONEncoder().encode(apiKeys) {
-            try? keysData.write(to: apiKeysFileURL)
+        if let data = try? JSONEncoder().encode(apiKeys) {
+            try? data.write(to: apiKeysFileURL)
         }
     }
 
@@ -138,83 +267,30 @@ public class ProjectRepository: ObservableObject {
         title: String,
         description: String,
         category: String,
-        priority: String
+        priority: String,
+        startDate: String? = nil,
+        deadline: String? = nil,
+        customColors: CustomColorConfig? = nil
     ) {
-        let newProj = Project(
-            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-            description: description.trimmingCharacters(in: .whitespacesAndNewlines),
+        let newP = Project(
+            title: title,
+            description: description,
             category: category,
             priority: priority,
-            mainTopics: [
-                MainTopic(
-                    title: "Aşama 1: Hazırlık",
-                    description: "Temel planlama ve gereksinimler",
-                    subTopics: [
-                        SubTopic(
-                            title: "İlk Görevler",
-                            items: [
-                                Item(title: "Gereksinim analizi ve malzeme listesi", completed: false, quantity: 1)
-                            ]
-                        )
-                    ]
-                )
-            ]
+            startDate: startDate,
+            deadline: deadline,
+            customColors: customColors
         )
-        projects.insert(newProj, at: 0)
+        projects.insert(newP, at: 0)
         saveLocalData()
-        Haptics.success()
-        MqttSyncEngine.shared.publishProjectChange(newProj)
     }
 
     public func updateProject(_ project: Project) {
         if let idx = projects.firstIndex(where: { $0.id == project.id }) {
             var updated = project
             updated.lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-            recalculateProgress(for: &updated)
             projects[idx] = updated
             saveLocalData()
-            MqttSyncEngine.shared.publishProjectChange(updated)
-        }
-    }
-
-    public func deleteProject(id: String) {
-        if let idx = projects.firstIndex(where: { $0.id == id }) {
-            var proj = projects[idx]
-            proj.deleted = true
-            proj.lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-            projects[idx] = proj
-            deletedProjectIds.append(DeletedItemRecord(id: id))
-            saveLocalData()
-            Haptics.heavy()
-            MqttSyncEngine.shared.publishProjectDelete(id: id)
-        }
-    }
-
-    public func permanentDeleteProject(id: String) {
-        projects.removeAll(where: { $0.id == id })
-        deletedProjectIds.append(DeletedItemRecord(id: id))
-        saveLocalData()
-        Haptics.heavy()
-        MqttSyncEngine.shared.publishProjectDelete(id: id)
-    }
-
-    public func restoreProject(id: String) {
-        if let idx = projects.firstIndex(where: { $0.id == id }) {
-            projects[idx].deleted = false
-            projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-            saveLocalData()
-            Haptics.success()
-            MqttSyncEngine.shared.publishProjectChange(projects[idx])
-        }
-    }
-
-    public func toggleArchive(id: String) {
-        if let idx = projects.firstIndex(where: { $0.id == id }) {
-            projects[idx].archived.toggle()
-            projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-            saveLocalData()
-            Haptics.light()
-            MqttSyncEngine.shared.publishProjectChange(projects[idx])
         }
     }
 
@@ -223,206 +299,163 @@ public class ProjectRepository: ObservableObject {
             projects[idx].pinned.toggle()
             projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
             saveLocalData()
-            Haptics.light()
-            MqttSyncEngine.shared.publishProjectChange(projects[idx])
         }
     }
 
-    // MARK: - Topic & Item Tree Operations
-    public func addMainTopic(projectId: String, title: String, description: String) {
-        guard let idx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        let newTopic = MainTopic(title: title, description: description)
-        projects[idx].mainTopics.append(newTopic)
-        projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-        recalculateProgress(for: &projects[idx])
+    public func toggleArchive(id: String) {
+        if let idx = projects.firstIndex(where: { $0.id == id }) {
+            projects[idx].archived.toggle()
+            projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+            saveLocalData()
+        }
+    }
+
+    public func deleteProject(id: String) {
+        if let idx = projects.firstIndex(where: { $0.id == id }) {
+            projects[idx].deleted = true
+            projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+            saveLocalData()
+        }
+    }
+
+    public func restoreProject(id: String) {
+        if let idx = projects.firstIndex(where: { $0.id == id }) {
+            projects[idx].deleted = false
+            projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+            saveLocalData()
+        }
+    }
+
+    public func permanentDeleteProject(id: String) {
+        if let idx = projects.firstIndex(where: { $0.id == id }) {
+            projects.remove(at: idx)
+            deletedProjectIds.append(DeletedItemRecord(id: id, deletedAt: Int64(Date().timeIntervalSince1970 * 1000)))
+            saveLocalData()
+        }
+    }
+
+    // MARK: - Reordering
+    public func reorderProjects(fromOffsets: IndexSet, toOffset: Int) {
+        projects.move(fromOffsets: fromOffsets, toOffset: toOffset)
         saveLocalData()
-        Haptics.success()
-        MqttSyncEngine.shared.publishProjectChange(projects[idx])
+    }
+
+    // MARK: - Topic Operations
+    public func addMainTopic(projectId: String, title: String, description: String = "", estimatedHours: Int = 0) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        let newTopic = MainTopic(
+            title: title,
+            description: description,
+            estimatedHours: estimatedHours
+        )
+        projects[pIdx].mainTopics.append(newTopic)
+        recalculateProgress(projectId: projectId)
+        saveLocalData()
+    }
+
+    public func updateMainTopic(projectId: String, topic: MainTopic) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        if let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == topic.id }) {
+            projects[pIdx].mainTopics[tIdx] = topic
+            recalculateProgress(projectId: projectId)
+            saveLocalData()
+        }
+    }
+
+    public func deleteMainTopic(projectId: String, topicId: String) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        projects[pIdx].mainTopics.removeAll { $0.id == topicId }
+        recalculateProgress(projectId: projectId)
+        saveLocalData()
     }
 
     public func addSubTopic(projectId: String, mainTopicId: String, title: String) {
-        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        guard let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == mainTopicId }) else { return }
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == mainTopicId }) else { return }
         let newSub = SubTopic(title: title)
         projects[pIdx].mainTopics[tIdx].subTopics.append(newSub)
-        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-        recalculateProgress(for: &projects[pIdx])
+        recalculateProgress(projectId: projectId)
         saveLocalData()
-        Haptics.success()
-        MqttSyncEngine.shared.publishProjectChange(projects[pIdx])
+    }
+
+    public func deleteSubTopic(projectId: String, mainTopicId: String, subTopicId: String) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == mainTopicId }) else { return }
+        projects[pIdx].mainTopics[tIdx].subTopics.removeAll { $0.id == subTopicId }
+        recalculateProgress(projectId: projectId)
+        saveLocalData()
     }
 
     public func addItem(projectId: String, mainTopicId: String, subTopicId: String, title: String, quantity: Int = 1) {
-        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        guard let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == mainTopicId }) else { return }
-        guard let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopicId }) else { return }
-
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == mainTopicId }),
+              let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopicId }) else { return }
         let newItem = Item(title: title, quantity: quantity)
         projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.append(newItem)
-        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-        recalculateProgress(for: &projects[pIdx])
+        recalculateProgress(projectId: projectId)
         saveLocalData()
-        Haptics.success()
-        MqttSyncEngine.shared.publishProjectChange(projects[pIdx])
     }
 
     public func toggleItem(projectId: String, topicId: String, subTopicId: String, itemId: String) {
-        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        var project = projects[pIdx]
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == topicId }),
+              let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopicId }),
+              let iIdx = projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.firstIndex(where: { $0.id == itemId }) else { return }
 
-        for tIdx in 0..<project.mainTopics.count {
-            if project.mainTopics[tIdx].id == topicId {
-                for sIdx in 0..<project.mainTopics[tIdx].subTopics.count {
-                    if project.mainTopics[tIdx].subTopics[sIdx].id == subTopicId {
-                        for iIdx in 0..<project.mainTopics[tIdx].subTopics[sIdx].items.count {
-                            if project.mainTopics[tIdx].subTopics[sIdx].items[iIdx].id == itemId {
-                                project.mainTopics[tIdx].subTopics[sIdx].items[iIdx].completed.toggle()
-                                project.mainTopics[tIdx].subTopics[sIdx].items[iIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-                                Haptics.medium()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        project.lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-        recalculateProgress(for: &project)
-        projects[pIdx] = project
+        projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items[iIdx].completed.toggle()
+        recalculateProgress(projectId: projectId)
         saveLocalData()
-        MqttSyncEngine.shared.publishProjectChange(project)
     }
 
-    public func adjustItemQuantity(projectId: String, topicId: String, subTopicId: String, itemId: String, delta: Int) {
-        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        var project = projects[pIdx]
+    public func updateItemQuantity(projectId: String, topicId: String, subTopicId: String, itemId: String, delta: Int) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == topicId }),
+              let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopicId }),
+              let iIdx = projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.firstIndex(where: { $0.id == itemId }) else { return }
 
-        for tIdx in 0..<project.mainTopics.count {
-            if project.mainTopics[tIdx].id == topicId {
-                for sIdx in 0..<project.mainTopics[tIdx].subTopics.count {
-                    if project.mainTopics[tIdx].subTopics[sIdx].id == subTopicId {
-                        for iIdx in 0..<project.mainTopics[tIdx].subTopics[sIdx].items.count {
-                            if project.mainTopics[tIdx].subTopics[sIdx].items[iIdx].id == itemId {
-                                let newQty = max(0, project.mainTopics[tIdx].subTopics[sIdx].items[iIdx].quantity + delta)
-                                project.mainTopics[tIdx].subTopics[sIdx].items[iIdx].quantity = newQty
-                                project.mainTopics[tIdx].subTopics[sIdx].items[iIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-                                Haptics.light()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        project.lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-        projects[pIdx] = project
+        let cur = projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items[iIdx].quantity
+        projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items[iIdx].quantity = max(1, cur + delta)
         saveLocalData()
-        MqttSyncEngine.shared.publishProjectChange(project)
     }
 
-    public func addMedia(projectId: String, name: String, mimeType: String, base64: String) {
-        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        let media = MediaItem(uri: "", mimeType: mimeType, name: name, base64Data: base64)
-        projects[pIdx].media.append(media)
-        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+    public func deleteItem(projectId: String, topicId: String, subTopicId: String, itemId: String) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == topicId }),
+              let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopicId }) else { return }
+
+        projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.removeAll { $0.id == itemId }
+        recalculateProgress(projectId: projectId)
         saveLocalData()
-        Haptics.success()
-        MqttSyncEngine.shared.publishProjectChange(projects[pIdx])
     }
 
     public func addNote(projectId: String, content: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        let note = Note(content: content)
-        projects[pIdx].notes.append(note)
-        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        projects[pIdx].notes.insert(Note(content: content), at: 0)
         saveLocalData()
-        Haptics.success()
-        MqttSyncEngine.shared.publishProjectChange(projects[pIdx])
     }
 
-    public func addChatMessage(projectId: String, role: String, content: String) {
+    public func deleteNote(projectId: String, noteId: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        let msg = ChatMessage(role: role, content: content)
-        if projects[pIdx].chatSessions.isEmpty {
-            projects[pIdx].chatSessions.append(ChatSession(messages: [msg]))
-        } else {
-            projects[pIdx].chatSessions[0].messages.append(msg)
-            projects[pIdx].chatSessions[0].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-        }
-        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        projects[pIdx].notes.removeAll { $0.id == noteId }
         saveLocalData()
     }
 
-    private func recalculateProgress(for project: inout Project) {
-        var totalItems = 0
-        var completedItems = 0
-        for topic in project.mainTopics where !topic.deleted {
-            for sub in topic.subTopics where !sub.deleted {
-                for item in sub.items where !item.deleted {
-                    totalItems += 1
-                    if item.completed { completedItems += 1 }
+    public func recalculateProgress(projectId: String) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        var total = 0
+        var completed = 0
+
+        for t in projects[pIdx].mainTopics {
+            for s in t.subTopics {
+                for i in s.items {
+                    total += 1
+                    if i.completed { completed += 1 }
                 }
             }
         }
-        if totalItems > 0 {
-            project.progress = Int((Double(completedItems) / Double(totalItems)) * 100)
-        } else {
-            project.progress = 0
+
+        if total > 0 {
+            projects[pIdx].progress = Int(Double(completed) / Double(total) * 100.0)
         }
-    }
-
-    // MARK: - Query & Filtered Lists
-    public var activeProjects: [Project] {
-        projects.filter { !$0.deleted && !$0.archived }
-    }
-
-    public var archivedProjects: [Project] {
-        projects.filter { !$0.deleted && $0.archived }
-    }
-
-    public var trashedProjects: [Project] {
-        projects.filter { $0.deleted }
-    }
-
-    public var filteredProjects: [Project] {
-        var list = activeProjects
-
-        if activeCategory != "Tümü" {
-            list = list.filter { $0.category.lowercased() == activeCategory.lowercased() }
-        }
-
-        if !searchQuery.isEmpty {
-            let q = searchQuery.lowercased()
-            list = list.filter {
-                $0.title.lowercased().contains(q) || $0.description.lowercased().contains(q)
-            }
-        }
-
-        switch sortBy {
-        case "name_asc":
-            list.sort {
-                if $0.pinned != $1.pinned { return $0.pinned && !$1.pinned }
-                return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-            }
-        case "progress_desc":
-            list.sort {
-                if $0.pinned != $1.pinned { return $0.pinned && !$1.pinned }
-                return $0.progress > $1.progress
-            }
-        case "priority_desc":
-            list.sort {
-                let pOrder = ["high": 3, "medium": 2, "low": 1]
-                let p0 = pOrder[$0.priority.lowercased()] ?? 0
-                let p1 = pOrder[$1.priority.lowercased()] ?? 0
-                return p0 > p1
-            }
-        default:
-            list.sort {
-                if $0.pinned != $1.pinned { return $0.pinned && !$1.pinned }
-                return $0.lastUpdated > $1.lastUpdated
-            }
-        }
-
-        return list
     }
 }

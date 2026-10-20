@@ -5,7 +5,8 @@ public struct DetailView: View {
     @ObservedObject var repo = ProjectRepository.shared
     @Environment(\.dismiss) private var dismiss
 
-    // Modals
+    // Modals & Sheets
+    @State private var showingEditProject = false
     @State private var showingAddTopic = false
     @State private var showingAddSubTopic = false
     @State private var activeTopicIdForSub: String = ""
@@ -14,7 +15,12 @@ public struct DetailView: View {
     @State private var showingAddNote = false
     @State private var showingMChat = false
     @State private var showingShare = false
+    @State private var showingMediaManager = false
     @State private var showingDeleteConfirm = false
+    @State private var newNoteText: String = ""
+
+    // Topic Accordions State
+    @State private var expandedTopics: [String: Bool] = [:]
 
     private var project: Project? {
         repo.projects.first(where: { $0.id == projectId })
@@ -23,116 +29,86 @@ public struct DetailView: View {
     public var body: some View {
         Group {
             if let p = project {
-                ZStack(alignment: .bottomTrailing) {
+                ZStack(alignment: .bottom) {
                     AppTheme.bg(isDark: repo.isDarkMode)
                         .ignoresSafeArea()
 
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            // MARK: - Project Header Card
-                            headerCard(p)
+                        VStack(alignment: .leading, spacing: 14) {
+                            // MARK: - 1. Project Summary Header Card
+                            projectSummaryCard(p)
 
-                            // MARK: - Action Buttons Bar (MChat, Note, Share)
-                            actionButtonsBar(p)
+                            // MARK: - 2. Topics Header & Add Button
+                            HStack {
+                                Text("AŞAMALAR VE GÖREVLER")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
 
-                            // MARK: - Topics Tree
-                            VStack(alignment: .leading, spacing: 14) {
-                                HStack {
-                                    Text("AŞAMALAR VE GÖREVLER")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                                Spacer()
 
-                                    Spacer()
-
-                                    Button(action: {
-                                        Haptics.light()
-                                        showingAddTopic = true
-                                    }) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "plus")
-                                            Text("Ana Aşama Ekle")
-                                        }
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(AppTheme.primary)
+                                Button(action: {
+                                    Haptics.light()
+                                    showingAddTopic = true
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "plus.circle.fill")
+                                        Text("Ana Aşama Ekle")
                                     }
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(AppTheme.primary)
                                 }
-                                .padding(.horizontal, 4)
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.top, 4)
 
+                            // MARK: - 3. 3-Level Topics Hierarchy (MainTopic -> SubTopic -> Item)
+                            if p.mainTopics.isEmpty {
+                                emptyTopicsCard
+                            } else {
                                 ForEach(p.mainTopics) { topic in
-                                    mainTopicCard(topic, project: p)
+                                    mainTopicAccordionCard(topic, project: p)
                                 }
                             }
 
-                            // MARK: - Engineering Notes Section
-                            if !p.notes.isEmpty {
-                                notesSection(p)
-                            }
+                            // MARK: - 4. Engineering Notes ("Notlarım") Card
+                            notesCard(p)
 
-                            // MARK: - Danger Zone
-                            Button(action: {
-                                showingDeleteConfirm = true
-                            }) {
-                                HStack {
-                                    Image(systemName: "trash")
-                                    Text("Projeyi Çöp Kutusuna Taşı")
-                                }
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(Color(hex: "#EF4444"))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Color(hex: "#EF4444").opacity(0.1))
-                                .cornerRadius(10)
-                            }
-                            .padding(.top, 16)
-                            .padding(.bottom, 64)
+                            Spacer().frame(height: 80)
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
                     }
 
-                    // Floating MChat AI Button
-                    Button(action: {
-                        Haptics.light()
-                        showingMChat = true
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "sparkles")
-                            Text("MChat AI")
-                        }
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(
-                            LinearGradient(
-                                colors: [AppTheme.primaryStart, AppTheme.primaryEnd],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(Capsule())
-                        .shadow(color: AppTheme.primary.opacity(0.4), radius: 8, x: 0, y: 4)
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 20)
+                    // MARK: - Fixed Bottom AI Roadmap & MChat Bar
+                    bottomActionBar(p)
                 }
                 .navigationTitle(p.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
+                    ToolbarItem(placement: .navigationBarTrailing) {
                         Menu {
-                            Button(action: { repo.toggleArchive(id: p.id) }) {
-                                Label(p.archived ? "Arşivden Çıkar" : "Arşive Taşı", systemImage: "archivebox")
+                            Button(action: { showingMChat = true }) {
+                                Label("MChat AI Asistanı", systemImage: "sparkles")
+                            }
+                            Button(action: { showingMediaManager = true }) {
+                                Label("Medyalar & Çizimler", systemImage: "paperclip")
+                            }
+                            Button(action: { showingShare = true }) {
+                                Label("Rapor Al & Paylaş", systemImage: "square.and.arrow.up")
                             }
                             Button(action: { repo.togglePin(id: p.id) }) {
                                 Label(p.pinned ? "Sabitlemeyi Kaldır" : "Başa Sabitle", systemImage: "pin")
                             }
-                            Button(action: { showingShare = true }) {
-                                Label("Paylaş & Rapor Al", systemImage: "square.and.arrow.up")
+                            Button(action: { repo.toggleArchive(id: p.id) }) {
+                                Label(p.archived ? "Arşivden Çıkar" : "Arşive Taşı", systemImage: "archivebox")
+                            }
+                            Divider()
+                            Button(role: .destructive, action: { showingDeleteConfirm = true }) {
+                                Label("Projeyi Çöp Kutusuna Taşı", systemImage: "trash")
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 18))
+                                .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(AppTheme.primary)
                         }
                     }
@@ -146,14 +122,14 @@ public struct DetailView: View {
                 .sheet(isPresented: $showingAddItem) {
                     AddItemSheet(projectId: p.id, mainTopicId: activeSubTopicTuple.mainId, subTopicId: activeSubTopicTuple.subId)
                 }
-                .sheet(isPresented: $showingAddNote) {
-                    AddNoteSheet(projectId: p.id)
-                }
                 .sheet(isPresented: $showingMChat) {
                     MChatView(projectId: p.id)
                 }
                 .sheet(isPresented: $showingShare) {
                     ExportShareView(project: p)
+                }
+                .sheet(isPresented: $showingMediaManager) {
+                    MediaManagerModal(projectId: p.id)
                 }
                 .alert("Projeyi Sil", isPresented: $showingDeleteConfirm) {
                     Button("İptal", role: .cancel) { }
@@ -171,174 +147,239 @@ public struct DetailView: View {
         }
     }
 
-    // MARK: - Header Card
-    private func headerCard(_ p: Project) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(p.category)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(AppTheme.primary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(AppTheme.primary.opacity(0.12))
-                    .cornerRadius(6)
+    // MARK: - Project Summary Header Card
+    private func projectSummaryCard(_ p: Project) -> some View {
+        let (completedTasks, totalTasks) = countTasks(p)
+        let isCompleted = (p.progress == 100) && (totalTasks == 0 || completedTasks == totalTasks)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center) {
+                CategoryVectorIconView(categoryId: p.category, isDarkMode: repo.isDarkMode)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(p.category.capitalized)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(AppTheme.primary)
+
+                    Text(p.title)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                }
 
                 Spacer()
 
-                Text("%\(p.progress) Tamamlandı")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(AppTheme.primary)
+                PrioritySignalBarsView(priority: p.priority, isDarkMode: repo.isDarkMode)
             }
 
             if !p.description.isEmpty {
                 Text(p.description)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
             }
 
-            // Progress meter
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(repo.isDarkMode ? Color.white.opacity(0.1) : Color.black.opacity(0.06))
-                        .frame(height: 8)
-
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(
-                            LinearGradient(
-                                colors: [AppTheme.primaryStart, AppTheme.primaryEnd],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: max(0, min(geo.size.width * CGFloat(p.progress) / 100, geo.size.width)), height: 8)
+            // Progress Bar
+            VStack(spacing: 4) {
+                HStack {
+                    Text("Tamamlanma Oranı")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                    Spacer()
+                    Text("%\(p.progress)")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
                 }
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(repo.isDarkMode ? Color.black.opacity(0.4) : Color(hex: "#EAEBE6"))
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: isCompleted ? [Color(hex: "#10B981"), Color(hex: "#059669")] : [AppTheme.primaryStart, AppTheme.primaryEnd],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(0, min(geo.size.width * CGFloat(p.progress) / 100.0, geo.size.width)))
+                    }
+                }
+                .frame(height: 8)
             }
-            .frame(height: 8)
+
+            HStack {
+                HStack(spacing: 4) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 11))
+                    Text(p.deadline ?? "Bitiş Tarihi Yok")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+
+                Spacer()
+
+                Text("\(completedTasks)/\(totalTasks) görev tamamlandı")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(isCompleted ? Color(hex: "#10B981") : AppTheme.textMuted(isDark: repo.isDarkMode))
+            }
         }
         .padding(16)
         .neumorphicCard(isDark: repo.isDarkMode)
     }
 
-    // MARK: - Action Buttons Bar
-    private func actionButtonsBar(_ p: Project) -> some View {
-        HStack(spacing: 10) {
-            actionButton(icon: "sparkles", title: "MChat AI", color: AppTheme.primary) {
-                showingMChat = true
-            }
-            actionButton(icon: "note.text.badge.plus", title: "Not Ekle", color: AppTheme.primary) {
-                showingAddNote = true
-            }
-            actionButton(icon: "square.and.arrow.up", title: "Rapor Al", color: AppTheme.primary) {
-                showingShare = true
-            }
-        }
-    }
+    // MARK: - Main Topic Accordion Card (Level 1)
+    private func mainTopicAccordionCard(_ topic: MainTopic, project: Project) -> some View {
+        let isExpanded = expandedTopics[topic.id] ?? true
+        let (topicDone, topicTotal) = countTopicTasks(topic)
+        let topicPercent = topicTotal > 0 ? Int(Double(topicDone) / Double(topicTotal) * 100) : 0
 
-    private func actionButton(icon: String, title: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: {
-            Haptics.light()
-            action()
-        }) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 13))
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundColor(color)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(color.opacity(0.12))
-            .cornerRadius(8)
-        }
-    }
+        return VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                // Expand / Collapse Chevron
+                Button(action: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        expandedTopics[topic.id] = !isExpanded
+                    }
+                }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(AppTheme.primary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                }
 
-    // MARK: - Main Topic Card
-    private func mainTopicCard(_ topic: MainTopic, project: Project) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(topic.title)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                // Title
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(topic.title)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+
+                    if !topic.description.isEmpty {
+                        Text(topic.description)
+                            .font(.system(size: 12))
+                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                            .lineLimit(1)
+                    }
+                }
 
                 Spacer()
 
-                if topic.completed {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(AppTheme.primary)
-                }
+                // Percentage Badge Circle (%22)
+                Text("%\(topicPercent)")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(topicPercent == 100 ? Color(hex: "#10B981") : AppTheme.primary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background((topicPercent == 100 ? Color(hex: "#10B981") : AppTheme.primary).opacity(0.12))
+                    .cornerRadius(8)
 
+                // Add SubTopic Button
                 Button(action: {
                     activeTopicIdForSub = topic.id
                     showingAddSubTopic = true
                 }) {
-                    Image(systemName: "plus.circle")
-                        .font(.system(size: 15))
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundColor(AppTheme.primary)
+                        .frame(width: 28, height: 28)
+                        .background(AppTheme.primary.opacity(0.1))
+                        .clipShape(Circle())
+                }
+
+                // Delete Topic Button
+                Button(action: {
+                    repo.deleteMainTopic(projectId: project.id, topicId: topic.id)
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
                 }
             }
+            .padding(14)
 
-            if !topic.description.isEmpty {
-                Text(topic.description)
-                    .font(.system(size: 12))
-                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-            }
-
-            Divider().background(AppTheme.border(isDark: repo.isDarkMode))
-
-            // SubTopics
-            if topic.subTopics.isEmpty {
-                Text("Henüz alt başlık eklenmedi.")
-                    .font(.system(size: 12))
-                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-                    .padding(.vertical, 4)
-            } else {
-                ForEach(topic.subTopics) { sub in
-                    subTopicSection(sub, topic: topic, project: project)
+            // SubTopics List (Level 2)
+            if isExpanded {
+                VStack(spacing: 10) {
+                    if topic.subTopics.isEmpty {
+                        Text("Henüz alt başlık eklenmedi. '+' butonuna basarak ekleyin.")
+                            .font(.system(size: 12))
+                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 12)
+                    } else {
+                        ForEach(topic.subTopics) { sub in
+                            subTopicCard(sub, topic: topic, project: project)
+                        }
+                    }
                 }
+                .padding(.horizontal, 10)
+                .padding(.bottom, 12)
             }
         }
-        .padding(14)
         .neumorphicCard(isDark: repo.isDarkMode)
     }
 
-    // MARK: - Sub Topic Section
-    private func subTopicSection(_ sub: SubTopic, topic: MainTopic, project: Project) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    // MARK: - SubTopic Card (Level 2)
+    private func subTopicCard(_ sub: SubTopic, topic: MainTopic, project: Project) -> some View {
+        let subDone = sub.items.filter { $0.completed }.count
+        let subTotal = sub.items.count
+
+        return VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(sub.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(AppTheme.primary)
 
                 Spacer()
 
+                Text("\(subDone)/\(subTotal)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+
+                // Add Item Button
                 Button(action: {
                     activeSubTopicTuple = (mainId: topic.id, subId: sub.id)
                     showingAddItem = true
                 }) {
                     HStack(spacing: 3) {
                         Image(systemName: "plus")
-                        Text("Görev Ekle")
+                        Text("Madde")
                     }
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundColor(AppTheme.primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(AppTheme.primary.opacity(0.12))
+                    .cornerRadius(6)
+                }
+
+                // Delete SubTopic
+                Button(action: {
+                    repo.deleteSubTopic(projectId: project.id, mainTopicId: topic.id, subTopicId: sub.id)
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
                 }
             }
 
-            // Items List
+            // Items List (Level 3)
             ForEach(sub.items) { item in
                 itemRow(item, sub: sub, topic: topic, project: project)
             }
         }
-        .padding(.vertical, 4)
+        .padding(10)
+        .background(repo.isDarkMode ? Color(hex: "#1E2024") : Color(hex: "#F8F6F2"))
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
     }
 
-    // MARK: - Item Row with Full Quantity Stepper (-10, -5, -1, +1, +5, +10)
+    // MARK: - Item Row (Level 3: Green strikethrough when completed 1:1)
     private func itemRow(_ item: Item, sub: SubTopic, topic: MainTopic, project: Project) -> some View {
-        HStack(alignment: .center, spacing: 10) {
-            // Checkbox
+        HStack(spacing: 10) {
+            // Checkbox Circle
             Button(action: {
+                Haptics.light()
                 repo.toggleItem(
                     projectId: project.id,
                     topicId: topic.id,
@@ -346,73 +387,210 @@ public struct DetailView: View {
                     itemId: item.id
                 )
             }) {
-                Image(systemName: item.completed ? "checkmark.square.fill" : "square")
+                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 18))
-                    .foregroundColor(item.completed ? AppTheme.primary : AppTheme.textMuted(isDark: repo.isDarkMode))
+                    .foregroundColor(item.completed ? Color(hex: "#10B981") : AppTheme.textMuted(isDark: repo.isDarkMode))
             }
+            .buttonStyle(PlainButtonStyle())
 
-            // Title
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.displayTitle)
-                    .font(.system(size: 14, weight: item.completed ? .regular : .medium))
-                    .foregroundColor(item.completed ? AppTheme.textMuted(isDark: repo.isDarkMode) : AppTheme.textHeading(isDark: repo.isDarkMode))
-                    .strikethrough(item.completed)
-            }
+            // Title with Strikethrough
+            Text(item.title)
+                .font(.system(size: 13, weight: item.completed ? .regular : .medium))
+                .strikethrough(item.completed, color: AppTheme.textMuted(isDark: repo.isDarkMode))
+                .foregroundColor(item.completed ? AppTheme.textMuted(isDark: repo.isDarkMode) : AppTheme.textHeading(isDark: repo.isDarkMode))
+                .lineLimit(2)
 
             Spacer()
 
-            // Quantity Counter Stepper
+            // Quantity Stepper
             HStack(spacing: 4) {
-                Button("-5") {
-                    repo.adjustItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: -5)
+                Button("-") {
+                    repo.updateItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: -1)
                 }
-                .buttonStyle(QuantityStepButtonStyle(isDark: repo.isDarkMode))
-
-                Button("-1") {
-                    repo.adjustItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: -1)
-                }
-                .buttonStyle(QuantityStepButtonStyle(isDark: repo.isDarkMode))
+                .font(.system(size: 11, weight: .bold))
+                .frame(width: 20, height: 20)
+                .background(repo.isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+                .cornerRadius(4)
 
                 Text("\(item.quantity)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
-                    .frame(minWidth: 24)
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(minWidth: 16)
 
-                Button("+1") {
-                    repo.adjustItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: 1)
+                Button("+") {
+                    repo.updateItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: 1)
                 }
-                .buttonStyle(QuantityStepButtonStyle(isDark: repo.isDarkMode))
-
-                Button("+5") {
-                    repo.adjustItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: 5)
-                }
-                .buttonStyle(QuantityStepButtonStyle(isDark: repo.isDarkMode))
+                .font(.system(size: 11, weight: .bold))
+                .frame(width: 20, height: 20)
+                .background(repo.isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+                .cornerRadius(4)
             }
+            .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+
+            // Delete Item
+            Button(action: {
+                repo.deleteItem(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id)
+            }) {
+                Image(systemName: "trash")
+                    .font(.system(size: 11))
+                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode).opacity(0.6))
+            }
+            .buttonStyle(PlainButtonStyle())
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(item.completed ? (repo.isDarkMode ? Color(hex: "#14241C") : Color(hex: "#F0FDF4")) : Color.clear)
+        .cornerRadius(8)
     }
 
-    // MARK: - Notes Section
-    private func notesSection(_ p: Project) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("MÜHENDİSLİK NOTLARI")
+    // MARK: - Engineering Notes Card
+    private func notesCard(_ p: Project) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("NOTLARIM")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-                .padding(.horizontal, 4)
 
+            // Note Input
+            HStack(spacing: 8) {
+                TextField("Yeni bir mühendislik notu ekle...", text: $newNoteText)
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
+                    .padding(10)
+                    .background(repo.isDarkMode ? Color(hex: "#1E1B18") : Color.white)
+                    .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
+
+                Button("Not Ekle") {
+                    guard !newNoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                    Haptics.light()
+                    repo.addNote(projectId: p.id, content: newNoteText)
+                    newNoteText = ""
+                }
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(newNoteText.isEmpty ? Color.gray.opacity(0.4) : AppTheme.primary)
+                .cornerRadius(8)
+                .disabled(newNoteText.isEmpty)
+            }
+
+            // Notes List
             ForEach(p.notes) { note in
-                VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top) {
                     Text(note.content)
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
-                    Text(Date(timeIntervalSince1970: Double(note.createdAt) / 1000).formatted())
-                        .font(.system(size: 10))
-                        .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+
+                    Spacer()
+
+                    Button(action: {
+                        repo.deleteNote(projectId: p.id, noteId: note.id)
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11))
+                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                    }
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .neumorphicCard(isDark: repo.isDarkMode)
+                .padding(10)
+                .background(repo.isDarkMode ? Color(hex: "#1E1B18") : Color(hex: "#FAF8F5"))
+                .cornerRadius(8)
             }
         }
+        .padding(14)
+        .neumorphicCard(isDark: repo.isDarkMode)
+    }
+
+    // MARK: - Bottom Action Bar
+    private func bottomActionBar(_ p: Project) -> some View {
+        HStack(spacing: 12) {
+            Button(action: {
+                Haptics.light()
+                showingMChat = true
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                    Text("MChat AI")
+                }
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.primaryStart, AppTheme.primaryEnd],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(14)
+                .shadow(color: AppTheme.primary.opacity(0.35), radius: 6, x: 0, y: 3)
+            }
+
+            Button(action: {
+                Haptics.light()
+                showingMediaManager = true
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "paperclip")
+                    Text("Medyalar (\(p.media.count))")
+                }
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(AppTheme.card(isDark: repo.isDarkMode))
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
+                .shadow(color: repo.isDarkMode ? Color.black.opacity(0.3) : Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background((repo.isDarkMode ? Color(hex: "#1E1B18") : Color(hex: "#FAF8F5")).opacity(0.95))
+        .overlay(Rectangle().frame(height: 1).foregroundColor(AppTheme.borderSubtle(isDark: repo.isDarkMode)), alignment: .top)
+    }
+
+    private var emptyTopicsCard: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "list.bullet.indent")
+                .font(.system(size: 32))
+                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+            Text("Henüz aşama eklenmemiş")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+            Text("Projenizi aşamalara ve görevlere bölmek için yukarıdaki '+' butonunu kullanın.")
+                .font(.system(size: 12))
+                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .neumorphicCard(isDark: repo.isDarkMode)
+    }
+
+    private func countTasks(_ p: Project) -> (completed: Int, total: Int) {
+        var completed = 0
+        var total = 0
+        for t in p.mainTopics {
+            for s in t.subTopics {
+                for i in s.items {
+                    total += 1
+                    if i.completed { completed += 1 }
+                }
+            }
+        }
+        return (completed, total)
+    }
+
+    private func countTopicTasks(_ t: MainTopic) -> (completed: Int, total: Int) {
+        var completed = 0
+        var total = 0
+        for s in t.subTopics {
+            for i in s.items {
+                total += 1
+                if i.completed { completed += 1 }
+            }
+        }
+        return (completed, total)
     }
 }
