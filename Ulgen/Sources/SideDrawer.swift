@@ -37,11 +37,11 @@ public struct SideDrawer: View {
                             }
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Y Alperen Karakaya")
+                                Text(mqtt.userEmail.isEmpty ? "Misafir Kullanıcı" : "Y Alperen Karakaya")
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.white)
 
-                                Text(mqtt.userEmail.isEmpty ? "yalpkarakaya@gmail.com" : mqtt.userEmail)
+                                Text(mqtt.userEmail.isEmpty ? "Giriş Yapılmadı" : mqtt.userEmail)
                                     .font(.system(size: 12))
                                     .foregroundColor(.white.opacity(0.85))
                                     .lineLimit(1)
@@ -79,7 +79,9 @@ public struct SideDrawer: View {
                         .background(Color.black.opacity(0.2))
                         .cornerRadius(12)
                     }
-                    .padding(20)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                    .padding(.top, 48)
                     .background(
                         LinearGradient(
                             colors: [AppTheme.primaryStart, AppTheme.primaryEnd],
@@ -105,6 +107,26 @@ public struct SideDrawer: View {
                                 mqtt.subscribeToAccountChannel()
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                     isOpen = false
+                                }
+                            }
+
+                            if !mqtt.userEmail.isEmpty {
+                                drawerActionItem(icon: "rectangle.portrait.and.arrow.right", title: "Güvenli Çıkış Yap", subtitle: "Google oturumunu kapat", isDestructive: true) {
+                                    Haptics.medium()
+                                    mqtt.disconnect()
+                                    mqtt.userEmail = ""
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isOpen = false
+                                    }
+                                }
+                            } else {
+                                drawerActionItem(icon: "person.crop.circle.badge.plus", title: "Google Hesabı Bağla", subtitle: "Bulut senkronizasyonu için giriş yap") {
+                                    Haptics.light()
+                                    mqtt.userEmail = "yalpkarakaya@gmail.com"
+                                    mqtt.subscribeToAccountChannel()
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isOpen = false
+                                    }
                                 }
                             }
 
@@ -203,13 +225,15 @@ public struct SideDrawer: View {
                             .foregroundColor(Color(hex: "#9CA3AF"))
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
-                    .padding(14)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 14)
+                    .padding(.bottom, 28)
                     .background(repo.isDarkMode ? Color(hex: "#1E1B18") : Color(hex: "#FAF8F5"))
                     .overlay(Rectangle().frame(height: 1).foregroundColor(AppTheme.borderSubtle(isDark: repo.isDarkMode)), alignment: .top)
                 }
                 .frame(width: 310)
                 .background(repo.isDarkMode ? Color(hex: "#1E1B18") : Color.white)
-                .ignoresSafeArea(edges: .vertical)
+                .ignoresSafeArea()
                 .transition(.move(edge: .trailing))
             }
 
@@ -320,24 +344,24 @@ public struct SideDrawer: View {
         .buttonStyle(.scaleSpring(scale: 0.97))
     }
 
-    // Action Item (Sync, Cloud Pull, Theme Toggle)
-    private func drawerActionItem(icon: String, title: String, subtitle: String? = nil, action: @escaping () -> Void) -> some View {
+    // Action Item (Sync, Cloud Pull, Theme Toggle, Sign Out)
+    private func drawerActionItem(icon: String, title: String, subtitle: String? = nil, isDestructive: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 16))
-                    .foregroundColor(AppTheme.primary)
+                    .foregroundColor(isDestructive ? Color(hex: "#EF4444") : AppTheme.primary)
                     .frame(width: 24)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
+                        .foregroundColor(isDestructive ? Color(hex: "#EF4444") : AppTheme.textBody(isDark: repo.isDarkMode))
 
                     if let sub = subtitle {
                         Text(sub)
                             .font(.system(size: 11))
-                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                            .foregroundColor(isDestructive ? Color(hex: "#EF4444").opacity(0.8) : AppTheme.textMuted(isDark: repo.isDarkMode))
                             .lineLimit(1)
                     }
                 }

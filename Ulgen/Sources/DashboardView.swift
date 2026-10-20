@@ -576,8 +576,6 @@ public struct ProjectCardView: View {
     public var isDark: Bool
     public var onShare: () -> Void
 
-    @State private var dragOffset: CGFloat = 0
-
     public var body: some View {
         let (completedTasks, totalTasks) = countTasks(project)
         let isCompleted = (project.progress == 100) && (totalTasks == 0 || completedTasks == totalTasks)
@@ -598,43 +596,10 @@ public struct ProjectCardView: View {
         let bodyColor = customText?.opacity(0.85) ?? AppTheme.textBody(isDark: isDark)
         let mutedColor = customText?.opacity(0.65) ?? AppTheme.textMuted(isDark: isDark)
 
-        ZStack {
-            // Swipe Actions Background (Arşiv / Sil)
-            HStack {
-                if dragOffset > 20 {
-                    HStack(spacing: 6) {
-                        Image(systemName: "archivebox.fill")
-                        Text("ARŞİV")
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .frame(maxHeight: .infinity)
-                    .background(Color(hex: "#048058"))
-                    .cornerRadius(20)
-                    Spacer()
-                }
-
-                if dragOffset < -20 {
-                    Spacer()
-                    HStack(spacing: 6) {
-                        Image(systemName: "trash.fill")
-                        Text("SİL")
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .frame(maxHeight: .infinity)
-                    .background(Color(hex: "#C72626"))
-                    .cornerRadius(20)
-                }
-            }
-
-            // Card Front Body
-            VStack(alignment: .leading, spacing: 0) {
-                // 1. Üst Satır: Kategori İkonu + Başlık + Öncelik + Tutamaç + Pin
-                HStack(alignment: .center, spacing: 10) {
-                    CategoryVectorIconView(categoryId: project.category, isDarkMode: isCardDark)
+        VStack(alignment: .leading, spacing: 0) {
+            // 1. Üst Satır: Kategori İkonu + Başlık + Öncelik + Tutamaç + Pin + Menü
+            HStack(alignment: .center, spacing: 10) {
+                CategoryVectorIconView(categoryId: project.category, isDarkMode: isCardDark)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(project.title.isEmpty ? "İsimsiz Proje" : project.title)
@@ -668,6 +633,43 @@ public struct ProjectCardView: View {
                             .font(.system(size: 15))
                             .foregroundColor(project.pinned ? (customText ?? Color(hex: "#F59E0B")) : mutedColor.opacity(0.5))
                             .rotationEffect(.degrees(project.pinned ? 0 : 45))
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.88))
+
+                    // Hızlı Aksiyon Menüsü (Arşiv, Paylaş, Sil)
+                    Menu {
+                        Button(action: {
+                            Haptics.light()
+                            ProjectRepository.shared.togglePin(id: project.id)
+                        }) {
+                            Label(project.pinned ? "Sabitlemeyi Kaldır" : "Başa Sabitle", systemImage: project.pinned ? "pin.slash" : "pin")
+                        }
+
+                        Button(action: {
+                            Haptics.light()
+                            ProjectRepository.shared.toggleArchive(id: project.id)
+                        }) {
+                            Label(project.archived ? "Arşivden Çıkar" : "Arşive Taşı", systemImage: "archivebox")
+                        }
+
+                        Button(action: onShare) {
+                            Label("Paylaş ve Rapor Al", systemImage: "square.and.arrow.up")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive, action: {
+                            Haptics.heavy()
+                            ProjectRepository.shared.deleteProject(id: project.id)
+                        }) {
+                            Label("Çöp Kutusuna Taşı", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(mutedColor.opacity(0.7))
+                            .frame(width: 26, height: 26)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.scaleSpring(scale: 0.88))
                 }
@@ -763,36 +765,42 @@ public struct ProjectCardView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 15)
-            .background(cardBgColor)
-            .cornerRadius(20)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(cardBorderColor, lineWidth: cardBorderWidth)
-            )
-            .shadow(color: isCardDark ? Color.black.opacity(0.35) : Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
-            .offset(x: dragOffset)
-            .gesture(
-                DragGesture()
-                    .onChanged { val in
-                        if abs(val.translation.width) > 10 {
-                            dragOffset = val.translation.width
-                        }
-                    }
-                    .onEnded { val in
-                        if val.translation.width > 90 {
-                            Haptics.medium()
-                            ProjectRepository.shared.toggleArchive(id: project.id)
-                        } else if val.translation.width < -90 {
-                            Haptics.heavy()
-                            ProjectRepository.shared.deleteProject(id: project.id)
-                        }
-                        withAnimation(.spring()) {
-                            dragOffset = 0
-                        }
-                    }
-            )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
+        .background(cardBgColor)
+        .cornerRadius(20)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(cardBorderColor, lineWidth: cardBorderWidth)
+        )
+        .shadow(color: isCardDark ? Color.black.opacity(0.35) : Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+        .contextMenu {
+            Button(action: {
+                Haptics.light()
+                ProjectRepository.shared.togglePin(id: project.id)
+            }) {
+                Label(project.pinned ? "Sabitlemeyi Kaldır" : "Başa Sabitle", systemImage: project.pinned ? "pin.slash" : "pin")
+            }
+
+            Button(action: {
+                Haptics.light()
+                ProjectRepository.shared.toggleArchive(id: project.id)
+            }) {
+                Label(project.archived ? "Arşivden Çıkar" : "Arşive Taşı", systemImage: "archivebox")
+            }
+
+            Button(action: onShare) {
+                Label("Paylaş ve Rapor Al", systemImage: "square.and.arrow.up")
+            }
+
+            Divider()
+
+            Button(role: .destructive, action: {
+                Haptics.heavy()
+                ProjectRepository.shared.deleteProject(id: project.id)
+            }) {
+                Label("Çöp Kutusuna Taşı", systemImage: "trash")
+            }
         }
     }
 

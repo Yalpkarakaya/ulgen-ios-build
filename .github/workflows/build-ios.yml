@@ -96,8 +96,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.3.1 --yes || true
-          gh release create v1.3.1 Ulgen.ipa Ulgen-Simulator.zip screenshot_iphone.png \
-            --title "Ülgen iOS v1.3.1 (1:1 Android Parity + Simulator Build)" \
-            --notes "1:1 Android Kotlin/Compose paritesi: Yakında modalı, dokunsal yaylanma (spring scale) animasyonları, sıfır-emoji standartı, ARM64 IPA ve sanal cihaz web testi için Ulgen-Simulator.zip paketi." \
+          gh release delete v1.3.2 --yes || true
+          gh release create v1.3.2 Ulgen.ipa Ulgen-Simulator.zip screenshot_iphone.png \
+            --title "Ülgen iOS v1.3.2 (Fullscreen Fix, Zero-Lag Scroll, Sign Out Parity)" \
+            --notes "1:1 Android Kotlin/Compose paritesi: UILaunchScreen ile tam ekran yerel kenarsız çözünürlük (siyah boşluklar giderildi), akıcı kaydırma (çakışan sürükleme kaldırıldı), yan menü Güvenli Çıkış Yap (Sign Out) butonu, ARM64 IPA ve güncel sanal simülatör paketi." \
             --target ${{ github.sha }} || true

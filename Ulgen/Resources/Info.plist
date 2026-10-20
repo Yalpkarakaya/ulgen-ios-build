@@ -43,6 +43,8 @@
     <string>Projelere görsel eklemek için galeri erişimi gereklidir.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Sesli notlar kaydetmek için mikrofon erişimi gereklidir.</string>
+    <key>UILaunchScreen</key>
+    <dict/>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <true/>
     <key>UIStatusBarStyle</key>
