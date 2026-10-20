@@ -30,6 +30,12 @@ public class MqttSyncEngine: ObservableObject {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
+    public func disconnect() {
+        webSocketTask?.cancel(with: .normalClosure, reason: nil)
+        webSocketTask = nil
+        self.isConnected = false
+    }
+
     public func subscribeToAccountChannel() {
         guard !userEmail.isEmpty else { return }
         let hash = sha256(userEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
