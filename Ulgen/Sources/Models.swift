@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - App Models matching com.ulgen.takip.data.model.Models.kt
+// MARK: - Production Models matching com.ulgen.takip.data.model.*
 
 public struct Project: Codable, Identifiable, Hashable {
     public var id: String
@@ -36,6 +36,7 @@ public struct Project: Codable, Identifiable, Hashable {
     public var driveFileId: String?
     public var deletedIds: [DeletedItemRecord]
     public var members: [ProjectMember]
+    public var chatSessions: [ChatSession]
     public var createdAt: Int64
     public var lastUpdated: Int64
     public var completionDate: Int64?
@@ -75,6 +76,7 @@ public struct Project: Codable, Identifiable, Hashable {
         driveFileId: String? = nil,
         deletedIds: [DeletedItemRecord] = [],
         members: [ProjectMember] = [],
+        chatSessions: [ChatSession] = [],
         createdAt: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
         lastUpdated: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
         completionDate: Int64? = nil,
@@ -113,6 +115,7 @@ public struct Project: Codable, Identifiable, Hashable {
         self.driveFileId = driveFileId
         self.deletedIds = deletedIds
         self.members = members
+        self.chatSessions = chatSessions
         self.createdAt = createdAt
         self.lastUpdated = lastUpdated
         self.completionDate = completionDate
@@ -307,12 +310,14 @@ public struct MediaItem: Codable, Identifiable, Hashable {
     public var uri: String
     public var mimeType: String
     public var name: String
+    public var base64Data: String?
 
-    public init(id: String = UUID().uuidString, uri: String = "", mimeType: String = "image/jpeg", name: String = "") {
+    public init(id: String = UUID().uuidString, uri: String = "", mimeType: String = "image/jpeg", name: String = "", base64Data: String? = nil) {
         self.id = id
         self.uri = uri
         self.mimeType = mimeType
         self.name = name
+        self.base64Data = base64Data
     }
 }
 
@@ -372,5 +377,78 @@ public struct AccountSyncEvent: Codable {
         self.projectId = projectId
         self.timestamp = timestamp
         self.projectJson = projectJson
+    }
+}
+
+// MARK: - MChat / AI Models
+public struct ChatSession: Codable, Identifiable, Hashable {
+    public var id: String
+    public var title: String
+    public var messages: [ChatMessage]
+    public var createdAt: Int64
+    public var lastUpdated: Int64
+
+    public init(id: String = UUID().uuidString, title: String = "Yeni Sohbet", messages: [ChatMessage] = [], createdAt: Int64 = Int64(Date().timeIntervalSince1970 * 1000), lastUpdated: Int64 = Int64(Date().timeIntervalSince1970 * 1000)) {
+        self.id = id
+        self.title = title
+        self.messages = messages
+        self.createdAt = createdAt
+        self.lastUpdated = lastUpdated
+    }
+}
+
+public struct ChatMessage: Codable, Identifiable, Hashable {
+    public var id: String
+    public var role: String // "user" or "assistant"
+    public var content: String
+    public var timestamp: Int64
+
+    public init(id: String = UUID().uuidString, role: String, content: String, timestamp: Int64 = Int64(Date().timeIntervalSince1970 * 1000)) {
+        self.id = id
+        self.role = role
+        self.content = content
+        self.timestamp = timestamp
+    }
+}
+
+// MARK: - Notification Model
+public struct AppNotification: Codable, Identifiable, Hashable {
+    public var id: String
+    public var title: String
+    public var message: String
+    public var type: String // "info", "sync", "warning"
+    public var timestamp: Int64
+    public var isRead: Bool
+
+    public init(id: String = UUID().uuidString, title: String, message: String, type: String = "info", timestamp: Int64 = Int64(Date().timeIntervalSince1970 * 1000), isRead: Bool = false) {
+        self.id = id
+        self.title = title
+        self.message = message
+        self.type = type
+        self.timestamp = timestamp
+        self.isRead = isRead
+    }
+}
+
+// MARK: - API Keys Configuration
+public struct ApiKeysConfig: Codable, Hashable {
+    public var geminiApiKey: String
+    public var openaiApiKey: String
+    public var claudeApiKey: String
+    public var deepseekApiKey: String
+    public var preferredModel: String
+
+    public init(
+        geminiApiKey: String = "",
+        openaiApiKey: String = "",
+        claudeApiKey: String = "",
+        deepseekApiKey: String = "",
+        preferredModel: String = "gemini-2.5-flash"
+    ) {
+        self.geminiApiKey = geminiApiKey
+        self.openaiApiKey = openaiApiKey
+        self.claudeApiKey = claudeApiKey
+        self.deepseekApiKey = deepseekApiKey
+        self.preferredModel = preferredModel
     }
 }

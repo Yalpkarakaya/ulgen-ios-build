@@ -6,6 +6,11 @@ public struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var emailInput: String = ""
+    @State private var geminiKey: String = ""
+    @State private var openaiKey: String = ""
+    @State private var selectedModel: String = "gemini-2.5-flash"
+
+    private let availableModels = ["gemini-2.5-flash", "gemini-1.5-pro", "gpt-4o", "claude-3-5-sonnet"]
 
     public var body: some View {
         NavigationStack {
@@ -14,7 +19,7 @@ public struct ProfileView: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 18) {
                         // MARK: - Device Info Card
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
@@ -25,7 +30,7 @@ public struct ProfileView: View {
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
                                 Spacer()
-                                Text("iPhone 17")
+                                Text("iPhone 17 (SM-S936B Parity)")
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(AppTheme.primary)
                             }
@@ -33,7 +38,7 @@ public struct ProfileView: View {
                             Divider().background(AppTheme.border(isDark: repo.isDarkMode))
 
                             HStack {
-                                Text("Ağ Durumu")
+                                Text("MQTT Senkronizasyonu")
                                     .font(.system(size: 13))
                                     .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
                                 Spacer()
@@ -41,7 +46,7 @@ public struct ProfileView: View {
                                     Circle()
                                         .fill(mqtt.isConnected ? Color(hex: "#10B981") : Color(hex: "#EF4444"))
                                         .frame(width: 8, height: 8)
-                                    Text(mqtt.isConnected ? "MQTT Çevrimiçi (HiveMQ)" : "Yerel Mod")
+                                    Text(mqtt.isConnected ? "HiveMQ Çevrimiçi" : "Yerel Mod")
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
                                 }
@@ -101,16 +106,60 @@ public struct ProfileView: View {
                         .padding(16)
                         .neumorphicCard(isDark: repo.isDarkMode)
 
-                        // MARK: - Statistics Card
+                        // MARK: - AI API Keys Section (ProfileScreen.kt paritesi)
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("İSTATİSTİKLER")
+                            Text("YAPAY ZEKA (AI) API ANAHTARLARI")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
 
-                            HStack {
-                                statBox(title: "Toplam Proje", value: "\(repo.projects.count)")
-                                statBox(title: "Aktif", value: "\(repo.projects.filter { !$0.archived }.count)")
-                                statBox(title: "Ortalama", value: "%" + String(repo.projects.isEmpty ? 0 : repo.projects.reduce(0) { $0 + $1.progress } / repo.projects.count))
+                            // Model Picker
+                            Picker("Tercih Edilen Model", selection: $selectedModel) {
+                                ForEach(availableModels, id: \.self) { m in
+                                    Text(m).tag(m)
+                                }
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+
+                            // Gemini Key
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Google Gemini API Key:")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                                SecureField("AIzaSy...", text: $geminiKey)
+                                    .font(.system(size: 13, design: .monospaced))
+                                    .padding(10)
+                                    .background(AppTheme.card(isDark: repo.isDarkMode))
+                                    .cornerRadius(8)
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
+                            }
+
+                            // OpenAI Key
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("OpenAI API Key:")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                                SecureField("sk-proj-...", text: $openaiKey)
+                                    .font(.system(size: 13, design: .monospaced))
+                                    .padding(10)
+                                    .background(AppTheme.card(isDark: repo.isDarkMode))
+                                    .cornerRadius(8)
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
+                            }
+
+                            Button(action: {
+                                repo.apiKeys.geminiApiKey = geminiKey
+                                repo.apiKeys.openaiApiKey = openaiKey
+                                repo.apiKeys.preferredModel = selectedModel
+                                repo.saveLocalData()
+                                Haptics.success()
+                            }) {
+                                Text("API Anahtarlarını Kaydet")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(AppTheme.primary)
+                                    .cornerRadius(8)
                             }
                         }
                         .padding(16)
@@ -119,7 +168,7 @@ public struct ProfileView: View {
                     .padding(16)
                 }
             }
-            .navigationTitle("Profil ve Eşitleme")
+            .navigationTitle("Profil ve Ayarlar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -129,22 +178,10 @@ public struct ProfileView: View {
             }
             .onAppear {
                 self.emailInput = mqtt.userEmail
+                self.geminiKey = repo.apiKeys.geminiApiKey
+                self.openaiKey = repo.apiKeys.openaiApiKey
+                self.selectedModel = repo.apiKeys.preferredModel
             }
         }
-    }
-
-    private func statBox(title: String, value: String) -> some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(AppTheme.primary)
-            Text(title)
-                .font(.system(size: 11))
-                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(repo.isDarkMode ? Color.white.opacity(0.04) : Color.black.opacity(0.02))
-        .cornerRadius(8)
     }
 }

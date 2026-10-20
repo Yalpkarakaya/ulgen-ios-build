@@ -4,6 +4,16 @@ public struct DetailView: View {
     public var projectId: String
     @ObservedObject var repo = ProjectRepository.shared
     @Environment(\.dismiss) private var dismiss
+
+    // Modals
+    @State private var showingAddTopic = false
+    @State private var showingAddSubTopic = false
+    @State private var activeTopicIdForSub: String = ""
+    @State private var showingAddItem = false
+    @State private var activeSubTopicTuple: (mainId: String, subId: String) = ("", "")
+    @State private var showingAddNote = false
+    @State private var showingMChat = false
+    @State private var showingShare = false
     @State private var showingDeleteConfirm = false
 
     private var project: Project? {
@@ -13,7 +23,7 @@ public struct DetailView: View {
     public var body: some View {
         Group {
             if let p = project {
-                ZStack {
+                ZStack(alignment: .bottomTrailing) {
                     AppTheme.bg(isDark: repo.isDarkMode)
                         .ignoresSafeArea()
 
@@ -22,16 +32,40 @@ public struct DetailView: View {
                             // MARK: - Project Header Card
                             headerCard(p)
 
+                            // MARK: - Action Buttons Bar (MChat, Note, Share)
+                            actionButtonsBar(p)
+
                             // MARK: - Topics Tree
                             VStack(alignment: .leading, spacing: 14) {
-                                Text("AŞAMALAR VE GÖREVLER")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-                                    .padding(.horizontal, 4)
+                                HStack {
+                                    Text("AŞAMALAR VE GÖREVLER")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+
+                                    Spacer()
+
+                                    Button(action: {
+                                        Haptics.light()
+                                        showingAddTopic = true
+                                    }) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "plus")
+                                            Text("Ana Aşama Ekle")
+                                        }
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(AppTheme.primary)
+                                    }
+                                }
+                                .padding(.horizontal, 4)
 
                                 ForEach(p.mainTopics) { topic in
                                     mainTopicCard(topic, project: p)
                                 }
+                            }
+
+                            // MARK: - Engineering Notes Section
+                            if !p.notes.isEmpty {
+                                notesSection(p)
                             }
 
                             // MARK: - Danger Zone
@@ -40,32 +74,95 @@ public struct DetailView: View {
                             }) {
                                 HStack {
                                     Image(systemName: "trash")
-                                    Text("Projeyi Sil")
+                                    Text("Projeyi Çöp Kutusuna Taşı")
                                 }
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(Color(hex: "#EF4444"))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(Color(hex: "#EF4444").opacity(0.1))
-                                .cornerRadius(12)
+                                .cornerRadius(10)
                             }
                             .padding(.top, 16)
-                            .padding(.bottom, 32)
+                            .padding(.bottom, 64)
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
                     }
+
+                    // Floating MChat AI Button
+                    Button(action: {
+                        Haptics.light()
+                        showingMChat = true
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                            Text("MChat AI")
+                        }
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            LinearGradient(
+                                colors: [AppTheme.primaryStart, AppTheme.primaryEnd],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .clipShape(Capsule())
+                        .shadow(color: AppTheme.primary.opacity(0.4), radius: 8, x: 0, y: 4)
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
                 }
                 .navigationTitle(p.title)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button(action: { repo.toggleArchive(id: p.id) }) {
+                                Label(p.archived ? "Arşivden Çıkar" : "Arşive Taşı", systemImage: "archivebox")
+                            }
+                            Button(action: { repo.togglePin(id: p.id) }) {
+                                Label(p.pinned ? "Sabitlemeyi Kaldır" : "Başa Sabitle", systemImage: "pin")
+                            }
+                            Button(action: { showingShare = true }) {
+                                Label("Paylaş & Rapor Al", systemImage: "square.and.arrow.up")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 18))
+                                .foregroundColor(AppTheme.primary)
+                        }
+                    }
+                }
+                .sheet(isPresented: $showingAddTopic) {
+                    AddTopicSheet(projectId: p.id)
+                }
+                .sheet(isPresented: $showingAddSubTopic) {
+                    AddSubTopicSheet(projectId: p.id, mainTopicId: activeTopicIdForSub)
+                }
+                .sheet(isPresented: $showingAddItem) {
+                    AddItemSheet(projectId: p.id, mainTopicId: activeSubTopicTuple.mainId, subTopicId: activeSubTopicTuple.subId)
+                }
+                .sheet(isPresented: $showingAddNote) {
+                    AddNoteSheet(projectId: p.id)
+                }
+                .sheet(isPresented: $showingMChat) {
+                    MChatView(projectId: p.id)
+                }
+                .sheet(isPresented: $showingShare) {
+                    ExportShareView(project: p)
+                }
                 .alert("Projeyi Sil", isPresented: $showingDeleteConfirm) {
                     Button("İptal", role: .cancel) { }
-                    Button("Sil", role: .destructive) {
+                    Button("Çöp Kutusuna Taşı", role: .destructive) {
                         repo.deleteProject(id: p.id)
                         dismiss()
                     }
                 } message: {
-                    Text("Bu projeyi ve tüm görevlerini silmek istediğinize emin misiniz?")
+                    Text("Bu proje çöp kutusuna taşınacak. Daha sonra kurtarabilir veya kalıcı olarak silebilirsiniz.")
                 }
             } else {
                 Text("Proje bulunamadı")
@@ -123,6 +220,40 @@ public struct DetailView: View {
         .neumorphicCard(isDark: repo.isDarkMode)
     }
 
+    // MARK: - Action Buttons Bar
+    private func actionButtonsBar(_ p: Project) -> some View {
+        HStack(spacing: 10) {
+            actionButton(icon: "sparkles", title: "MChat AI", color: AppTheme.primary) {
+                showingMChat = true
+            }
+            actionButton(icon: "note.text.badge.plus", title: "Not Ekle", color: AppTheme.primary) {
+                showingAddNote = true
+            }
+            actionButton(icon: "square.and.arrow.up", title: "Rapor Al", color: AppTheme.primary) {
+                showingShare = true
+            }
+        }
+    }
+
+    private func actionButton(icon: String, title: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            Haptics.light()
+            action()
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundColor(color)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(color.opacity(0.12))
+            .cornerRadius(8)
+        }
+    }
+
     // MARK: - Main Topic Card
     private func mainTopicCard(_ topic: MainTopic, project: Project) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -137,6 +268,15 @@ public struct DetailView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(AppTheme.primary)
                 }
+
+                Button(action: {
+                    activeTopicIdForSub = topic.id
+                    showingAddSubTopic = true
+                }) {
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 15))
+                        .foregroundColor(AppTheme.primary)
+                }
             }
 
             if !topic.description.isEmpty {
@@ -145,12 +285,18 @@ public struct DetailView: View {
                     .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
             }
 
-            Divider()
-                .background(AppTheme.border(isDark: repo.isDarkMode))
+            Divider().background(AppTheme.border(isDark: repo.isDarkMode))
 
             // SubTopics
-            ForEach(topic.subTopics) { sub in
-                subTopicSection(sub, topic: topic, project: project)
+            if topic.subTopics.isEmpty {
+                Text("Henüz alt başlık eklenmedi.")
+                    .font(.system(size: 12))
+                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                    .padding(.vertical, 4)
+            } else {
+                ForEach(topic.subTopics) { sub in
+                    subTopicSection(sub, topic: topic, project: project)
+                }
             }
         }
         .padding(14)
@@ -160,9 +306,25 @@ public struct DetailView: View {
     // MARK: - Sub Topic Section
     private func subTopicSection(_ sub: SubTopic, topic: MainTopic, project: Project) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(sub.title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(AppTheme.primary)
+            HStack {
+                Text(sub.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppTheme.primary)
+
+                Spacer()
+
+                Button(action: {
+                    activeSubTopicTuple = (mainId: topic.id, subId: sub.id)
+                    showingAddItem = true
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "plus")
+                        Text("Görev Ekle")
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(AppTheme.primary)
+                }
+            }
 
             // Items List
             ForEach(sub.items) { item in
@@ -172,7 +334,7 @@ public struct DetailView: View {
         .padding(.vertical, 4)
     }
 
-    // MARK: - Item Row with Quantity Counter Stepper
+    // MARK: - Item Row with Full Quantity Stepper (-10, -5, -1, +1, +5, +10)
     private func itemRow(_ item: Item, sub: SubTopic, topic: MainTopic, project: Project) -> some View {
         HStack(alignment: .center, spacing: 10) {
             // Checkbox
@@ -199,8 +361,13 @@ public struct DetailView: View {
 
             Spacer()
 
-            // Quantity Counter Stepper (-5, -1, Qty, +1, +5)
+            // Quantity Counter Stepper
             HStack(spacing: 4) {
+                Button("-5") {
+                    repo.adjustItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: -5)
+                }
+                .buttonStyle(QuantityStepButtonStyle(isDark: repo.isDarkMode))
+
                 Button("-1") {
                     repo.adjustItemQuantity(projectId: project.id, topicId: topic.id, subTopicId: sub.id, itemId: item.id, delta: -1)
                 }
@@ -224,19 +391,28 @@ public struct DetailView: View {
         }
         .padding(.vertical, 4)
     }
-}
 
-// MARK: - Stepper Button Style
-struct QuantityStepButtonStyle: ButtonStyle {
-    var isDark: Bool
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundColor(AppTheme.textHeading(isDark: isDark))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.04))
-            .cornerRadius(4)
-            .opacity(configuration.isPressed ? 0.7 : 1.0)
+    // MARK: - Notes Section
+    private func notesSection(_ p: Project) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("MÜHENDİSLİK NOTLARI")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                .padding(.horizontal, 4)
+
+            ForEach(p.notes) { note in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(note.content)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
+                    Text(Date(timeIntervalSince1970: Double(note.createdAt) / 1000).formatted())
+                        .font(.system(size: 10))
+                        .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .neumorphicCard(isDark: repo.isDarkMode)
+            }
+        }
     }
 }

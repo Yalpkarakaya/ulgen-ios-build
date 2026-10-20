@@ -83,8 +83,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.1.0 --yes || true
-          gh release create v1.1.0 Ulgen.ipa screenshot_iphone.png \
-            --title "Ülgen iOS v1.1.0 (Native Kotlin Parity & SideStore Uyumlu)" \
-            --notes "Android Kotlin (takip-android) mimarisinden 1:1 referansla geliştirilen yerel SwiftUI iOS paketi. HiveMQ MQTT canlı senkronizasyon, Taptic Engine ve SideStore otomatik yenileme desteği içerir." \
+          gh release delete v1.2.0 --yes || true
+          gh release create v1.2.0 Ulgen.ipa screenshot_iphone.png \
+            --title "Ülgen iOS v1.2.0 (Full Production Quality Native IPA)" \
+            --notes "Tam donanımlı yerel SwiftUI mimarisi: MChat AI Asistanı, Raporlama & Paylaşım, Aşamalar & Görev Ağacı, Arşiv & Çöp Kutusu, Admin Konsolu ve HiveMQ MQTT canlı senkronizasyon." \
             --target ${{ github.sha }} || true
