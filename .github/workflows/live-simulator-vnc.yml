@@ -1,0 +1,136 @@
+name: Live Interactive iOS Simulator Web Session
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/live-simulator-vnc.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  interactive-session:
+    runs-on: macos-14
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Build Ulgen for iOS Simulator
+        run: |
+          xcodebuild -project Ulgen.xcodeproj \
+            -scheme Ulgen \
+            -sdk iphonesimulator \
+            -configuration Release \
+            -derivedDataPath build_sim \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Boot Virtual iPhone and Install Ulgen
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available | grep -E "iPhone 15 Pro|iPhone 15|iPhone 16" | head -n 1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
+          if [ -z "$DEVICE_ID" ]; then
+            DEVICE_ID=$(xcrun simctl list devices available | grep "iPhone" | head -n 1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
+          fi
+          echo "Selected virtual device ID: $DEVICE_ID"
+          echo "SIM_DEVICE_ID=$DEVICE_ID" >> $GITHUB_ENV
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl ui "$DEVICE_ID" appearance light
+          xcrun simctl install "$DEVICE_ID" build_sim/Build/Products/Release-iphonesimulator/Ulgen.app
+          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen
+          open -a Simulator
+          echo "iOS Simulator launched on macOS GUI desktop."
+
+      - name: Enable macOS Screen Sharing (VNC Server)
+        run: |
+          echo "Configuring Apple Remote Management VNC..."
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate -configure -access -on \
+            -clientopts -setvnclegacy -vnclegacy yes \
+            -clientopts -setvncpw -vncpw "ulgen123" \
+            -restart -agent -privs -all
+          echo "VNC server running on port 5900."
+
+      - name: Set up noVNC Web Client
+        run: |
+          git clone --depth 1 https://github.com/novnc/noVNC.git /tmp/novnc
+          git clone --depth 1 https://github.com/novnc/websockify.git /tmp/novnc/utils/websockify
+          
+          # Patch noVNC for macOS RFB protocol version 003.889 compatibility
+          sed -i '' 's/case "003.008":/case "003.889":\ncase "003.008":/g' /tmp/novnc/core/rfb.js
+          
+          # Start websockify proxy on port 6080 -> localhost:5900
+          nohup python3 /tmp/novnc/utils/websockify/run --web /tmp/novnc 6080 localhost:5900 > /tmp/websockify.log 2>&1 &
+          sleep 2
+          echo "noVNC running on http://localhost:6080"
+
+      - name: Install Cloudflare Tunnel
+        run: |
+          brew install cloudflare/cloudflare/cloudflared
+
+      - name: Start Cloudflare Tunnel and Generate Web Link
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          nohup cloudflared tunnel --url http://localhost:6080 > /tmp/cloudflared.log 2>&1 &
+          
+          # Wait for public URL to be assigned
+          echo "Waiting for Cloudflare tunnel URL..."
+          TUNNEL_URL=""
+          for i in {1..20}; do
+            sleep 2
+            TUNNEL_URL=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' /tmp/cloudflared.log | head -n 1 || true)
+            if [ -n "$TUNNEL_URL" ]; then
+              break
+            fi
+          done
+
+          if [ -z "$TUNNEL_URL" ]; then
+            echo "Cloudflare log output:"
+            cat /tmp/cloudflared.log
+            exit 1
+          fi
+
+          FULL_LINK="$TUNNEL_URL/vnc.html?autoconnect=true&password=ulgen123"
+          echo "LIVE_URL=$FULL_LINK" >> $GITHUB_ENV
+
+          echo "================================================================="
+          echo "CANLI WEB IPHONE LINKI:"
+          echo "$FULL_LINK"
+          echo "================================================================="
+
+          # Publish to Step Summary
+          echo "## 📱 Canlı Sanal iPhone Web Erişim Linki" >> $GITHUB_STEP_SUMMARY
+          echo "Tarayıcınızdan doğrudan aşağıdaki linke tıklayarak sanal iPhone'a erişebilirsiniz:" >> $GITHUB_STEP_SUMMARY
+          echo "👉 **[Sanal iPhone'a Bağlan ($FULL_LINK)]($FULL_LINK)**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **VNC Şifresi:** \`ulgen123\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Aktif Süre:** 60 dakika" >> $GITHUB_STEP_SUMMARY
+
+          # Create a lightweight release or tag with live session link
+          echo "$FULL_LINK" > live_session_url.txt
+          gh release delete live-session --yes || true
+          gh release create live-session live_session_url.txt \
+            --title "Canlı Sanal iPhone Oturumu" \
+            --notes "Canlı web bağlantı linki: $FULL_LINK" || true
+
+      - name: Keep Interactive Session Alive (60 Minutes)
+        run: |
+          echo "Interactive session is active at: ${{ env.LIVE_URL }}"
+          echo "Waiting 3600 seconds (1 hour)..."
+          sleep 3600
