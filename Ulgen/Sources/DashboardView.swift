@@ -482,107 +482,129 @@ public struct DashboardView: View {
     // MARK: - Filter Options Panel (Category + Priority Columns 1:1)
     private func filterOptionsPanel(isDual: Bool) -> some View {
         HStack(alignment: .top, spacing: 6) {
-            // Sol Sütun: KATEGORİ
-            VStack(alignment: .leading, spacing: 4) {
-                Text("KATEGORİ")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-                    .padding(.leading, 2)
-                    .padding(.bottom, 1)
-
-                ForEach(categories.filter { $0.id != "all" }, id: \.id) { cat in
-                    let isSel = repo.selectedCategory == cat.id
-                    Button(action: {
-                        Haptics.light()
-                        repo.selectedCategory = (repo.selectedCategory == cat.id) ? "all" : cat.id
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: categoryIconName(cat.id))
-                                .font(.system(size: 11))
-                                .foregroundColor(categoryColor(cat.id))
-                            Text(cat.label)
-                                .font(.system(size: isDual ? 10.5 : 11.5, weight: isSel ? .bold : .medium))
-                                .foregroundColor(isSel ? (repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B")) : AppTheme.textBody(isDark: repo.isDarkMode))
-                                .lineLimit(1)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 6)
-                        .frame(height: 28)
-                        .background(isSel ? categoryColor(cat.id).opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
-                        .cornerRadius(7)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 7)
-                                .stroke(isSel ? categoryColor(cat.id) : (repo.isDarkMode ? Color(hex: "#383A42") : Color(hex: "#D5D0C5")), lineWidth: isSel ? 1.5 : 1)
-                        )
-                    }
-                    .buttonStyle(.scaleSpring(scale: 0.96))
-                }
-            }
-            .frame(maxWidth: .infinity)
-
-            // Sağ Sütun: ÖNCELİK
-            VStack(alignment: .leading, spacing: 4) {
-                Text("ÖNCELİK")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-                    .padding(.leading, 2)
-                    .padding(.bottom, 1)
-
-                ForEach(priorities.filter { $0.id != "all" }, id: \.id) { prio in
-                    let isSel = repo.selectedPriority == prio.id
-                    Button(action: {
-                        Haptics.light()
-                        repo.selectedPriority = (repo.selectedPriority == prio.id) ? "all" : prio.id
-                    }) {
-                        HStack(spacing: 5) {
-                            // Signal bars indicator
-                            HStack(alignment: .bottom, spacing: 2) {
-                                ForEach(1...4, id: \.self) { bar in
-                                    RoundedRectangle(cornerRadius: 1)
-                                        .fill(bar <= priorityBarsCount(prio.id) ? priorityColor(prio.id) : Color.gray.opacity(0.3))
-                                        .frame(width: 2.5, height: CGFloat(3 + bar * 2.5))
-                                }
-                            }
-                            .frame(width: 14, height: 13, alignment: .bottom)
-
-                            Text(prio.label)
-                                .font(.system(size: isDual ? 10.5 : 11.5, weight: isSel ? .bold : .medium))
-                                .foregroundColor(isSel ? (repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B")) : AppTheme.textBody(isDark: repo.isDarkMode))
-                                .lineLimit(1)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 6)
-                        .frame(height: 28)
-                        .background(isSel ? priorityColor(prio.id).opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
-                        .cornerRadius(7)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 7)
-                                .stroke(isSel ? priorityColor(prio.id) : (repo.isDarkMode ? Color(hex: "#383A42") : Color(hex: "#D5D0C5")), lineWidth: isSel ? 1.5 : 1)
-                        )
-                    }
-                    .buttonStyle(.scaleSpring(scale: 0.96))
-                }
-
-                // Clear filter button
-                if repo.selectedCategory != "all" || repo.selectedPriority != "all" {
-                    Button(action: {
-                        Haptics.light()
-                        repo.selectedCategory = "all"
-                        repo.selectedPriority = "all"
-                    }) {
-                        Text("Temizle")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(Color(hex: "#EF4444"))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 24)
-                            .background(Color(hex: "#EF4444").opacity(0.12))
-                            .cornerRadius(6)
-                    }
-                    .buttonStyle(.scaleSpring(scale: 0.96))
-                }
-            }
-            .frame(maxWidth: .infinity)
+            categoryFilterColumn(isDual: isDual)
+                .frame(maxWidth: .infinity)
+            priorityFilterColumn(isDual: isDual)
+                .frame(maxWidth: .infinity)
         }
+    }
+
+    private func categoryFilterColumn(isDual: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("KATEGORİ")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                .padding(.leading, 2)
+                .padding(.bottom, 1)
+
+            ForEach(categories.filter { $0.id != "all" }, id: \.id) { cat in
+                categoryItemButton(cat: cat, isDual: isDual)
+            }
+        }
+    }
+
+    private func categoryItemButton(cat: (id: String, label: String), isDual: Bool) -> some View {
+        let isSel = repo.selectedCategory == cat.id
+        let cColor = categoryColor(cat.id)
+        return Button(action: {
+            Haptics.light()
+            repo.selectedCategory = (repo.selectedCategory == cat.id) ? "all" : cat.id
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: categoryIconName(cat.id))
+                    .font(.system(size: 11))
+                    .foregroundColor(cColor)
+                Text(cat.label)
+                    .font(.system(size: isDual ? 10.5 : 11.5, weight: isSel ? .bold : .medium))
+                    .foregroundColor(isSel ? (repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B")) : AppTheme.textBody(isDark: repo.isDarkMode))
+                    .lineLimit(1)
+                Spacer()
+            }
+            .padding(.horizontal, 6)
+            .frame(height: 28)
+            .background(isSel ? cColor.opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
+            .cornerRadius(7)
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(isSel ? cColor : (repo.isDarkMode ? Color(hex: "#383A42") : Color(hex: "#D5D0C5")), lineWidth: isSel ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.scaleSpring(scale: 0.96))
+    }
+
+    private func priorityFilterColumn(isDual: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("ÖNCELİK")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                .padding(.leading, 2)
+                .padding(.bottom, 1)
+
+            ForEach(priorities.filter { $0.id != "all" }, id: \.id) { prio in
+                priorityItemButton(prio: prio, isDual: isDual)
+            }
+
+            if repo.selectedCategory != "all" || repo.selectedPriority != "all" {
+                Button(action: {
+                    Haptics.light()
+                    repo.selectedCategory = "all"
+                    repo.selectedPriority = "all"
+                }) {
+                    Text("Temizle")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Color(hex: "#EF4444"))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 24)
+                        .background(Color(hex: "#EF4444").opacity(0.12))
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.scaleSpring(scale: 0.96))
+            }
+        }
+    }
+
+    private func priorityItemButton(prio: (id: String, label: String), isDual: Bool) -> some View {
+        let isSel = repo.selectedPriority == prio.id
+        let pColor = priorityColor(prio.id)
+        let bars = priorityBarsCount(prio.id)
+        return Button(action: {
+            Haptics.light()
+            repo.selectedPriority = (repo.selectedPriority == prio.id) ? "all" : prio.id
+        }) {
+            HStack(spacing: 5) {
+                // Signal bars
+                HStack(alignment: .bottom, spacing: 2) {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(1 <= bars ? pColor : Color.gray.opacity(0.3))
+                        .frame(width: 2.5, height: 5.5)
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(2 <= bars ? pColor : Color.gray.opacity(0.3))
+                        .frame(width: 2.5, height: 8.0)
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(3 <= bars ? pColor : Color.gray.opacity(0.3))
+                        .frame(width: 2.5, height: 10.5)
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(4 <= bars ? pColor : Color.gray.opacity(0.3))
+                        .frame(width: 2.5, height: 13.0)
+                }
+                .frame(width: 14, height: 13, alignment: .bottom)
+
+                Text(prio.label)
+                    .font(.system(size: isDual ? 10.5 : 11.5, weight: isSel ? .bold : .medium))
+                    .foregroundColor(isSel ? (repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B")) : AppTheme.textBody(isDark: repo.isDarkMode))
+                    .lineLimit(1)
+                Spacer()
+            }
+            .padding(.horizontal, 6)
+            .frame(height: 28)
+            .background(isSel ? pColor.opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
+            .cornerRadius(7)
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(isSel ? pColor : (repo.isDarkMode ? Color(hex: "#383A42") : Color(hex: "#D5D0C5")), lineWidth: isSel ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.scaleSpring(scale: 0.96))
     }
 
     private func categoryIconName(_ id: String) -> String {
