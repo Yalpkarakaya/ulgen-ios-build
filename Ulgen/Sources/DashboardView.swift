@@ -67,15 +67,9 @@ public struct DashboardView: View {
                             // Kontrol Satırı (.dashboard-controls): Sıralama Ölçütü ve Filtreler Akordeon Butonları
                             controlsRow
 
-                            // Connected Accordion: Sıralama Ölçütü
-                            if showSortPanel {
-                                sortAccordionPanel
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
-
-                            // Connected Accordion: Filtreler
-                            if showFilterPanel {
-                                filterAccordionPanel
+                            // Connected Dual Accordion (1:1 with DashboardScreen.kt lines 750-1070)
+                            if showSortPanel || showFilterPanel {
+                                accordionContainer
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                             }
 
@@ -114,22 +108,55 @@ public struct DashboardView: View {
                                     }
                                 }
 
-                                // 1:1 Android Alt Arşiv Çekme İpucu
-                                HStack(spacing: 6) {
-                                    Image(systemName: "chevron.up")
-                                        .font(.system(size: 11, weight: .bold))
-                                    Text("Arşivi görmek için yukarı kaydırın")
-                                        .font(.system(size: 12, weight: .medium))
+                                // 1:1 Android Alt Arşiv Çekme Droplet (ArchivePullDroplet.kt paritesi)
+                                Button(action: {
+                                    Haptics.medium()
+                                    showingArchive = true
+                                }) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "archivebox.fill")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(AppTheme.primary)
+
+                                        Text("Arşivi açmak için dokunun veya yukarı kaydırın")
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+
+                                        Image(systemName: "chevron.up")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(AppTheme.primary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(repo.isDarkMode ? Color(hex: "#1D1E22") : Color(hex: "#F3F1EE"))
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1)
+                                    )
                                 }
-                                .foregroundColor(Color(hex: "#94A3B8"))
-                                .frame(maxWidth: .infinity)
+                                .buttonStyle(.scaleSpring(scale: 0.98))
                                 .padding(.top, 14)
                                 .padding(.bottom, 8)
+                                .gesture(
+                                    DragGesture(minimumDistance: 20)
+                                        .onEnded { value in
+                                            if value.translation.height < -25 {
+                                                Haptics.medium()
+                                                showingArchive = true
+                                            }
+                                        }
+                                )
                             }
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 14)
                         .padding(.bottom, 100)
+                    }
+                    .refreshable {
+                        Haptics.light()
+                        await repo.syncWithCloud()
+                        Haptics.success()
                     }
                 }
 
@@ -299,9 +326,9 @@ public struct DashboardView: View {
         HStack(spacing: 8) {
             // Sol: Sıralama Ölçütü Butonu
             Button(action: {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                Haptics.light()
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                     showSortPanel.toggle()
-                    if showSortPanel { showFilterPanel = false }
                 }
             }) {
                 HStack(spacing: 6) {
@@ -333,9 +360,9 @@ public struct DashboardView: View {
             // Sağ: Filtreler Butonu
             let activeFilters = (repo.selectedCategory != "all" ? 1 : 0) + (repo.selectedPriority != "all" ? 1 : 0)
             Button(action: {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                Haptics.light()
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                     showFilterPanel.toggle()
-                    if showFilterPanel { showSortPanel = false }
                 }
             }) {
                 HStack(spacing: 6) {
@@ -374,35 +401,22 @@ public struct DashboardView: View {
         }
     }
 
-    // MARK: - Sort Accordion Panel (9 Sort Options 1:1)
-    private var sortAccordionPanel: some View {
-        VStack(spacing: 4) {
-            ForEach(sortOptions, id: \.id) { opt in
-                let isSelected = repo.sortOption == opt.id
-                Button(action: {
-                    Haptics.light()
-                    repo.sortOption = opt.id
-                    withAnimation { showSortPanel = false }
-                }) {
-                    HStack {
-                        Text(opt.label)
-                            .font(.system(size: 13, weight: isSelected ? .bold : .medium))
-                            .foregroundColor(isSelected ? AppTheme.primary : AppTheme.textBody(isDark: repo.isDarkMode))
-
-                        Spacer()
-
-                        if isSelected {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(AppTheme.primary)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(isSelected ? AppTheme.primary.opacity(0.1) : Color.clear)
-                    .cornerRadius(8)
+    // MARK: - Unified Dual Zipper Accordion Container (1:1 with DashboardScreen.kt)
+    private var accordionContainer: some View {
+        Group {
+            if showSortPanel && showFilterPanel {
+                HStack(alignment: .top, spacing: 8) {
+                    sortOptionsPanel(isDual: true)
+                        .frame(maxWidth: .infinity)
+                    filterOptionsPanel(isDual: true)
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.scaleSpring(scale: 0.97))
+            } else if showSortPanel {
+                sortOptionsPanel(isDual: false)
+                    .frame(maxWidth: .infinity)
+            } else if showFilterPanel {
+                filterOptionsPanel(isDual: false)
+                    .frame(maxWidth: .infinity)
             }
         }
         .padding(10)
@@ -411,85 +425,204 @@ public struct DashboardView: View {
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
     }
 
-    // MARK: - Filter Accordion Panel (Categories + Priorities)
-    private var filterAccordionPanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Kategori Seçimi
-            VStack(alignment: .leading, spacing: 6) {
-                Text("KATEGORİ")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+    // MARK: - Sort Options Panel (2 Columns Layout 1:1)
+    private func sortOptionsPanel(isDual: Bool) -> some View {
+        VStack(spacing: 4) {
+            // Row 0: Custom (Full width)
+            sortOptionButton(id: "custom", label: isDual ? "Özel Sıralama" : "Özel Sıralama (Sürükle & Bırak)", isDual: isDual)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(categories, id: \.id) { cat in
-                            let isSel = repo.selectedCategory == cat.id
-                            Button(action: {
-                                Haptics.light()
-                                repo.selectedCategory = (repo.selectedCategory == cat.id && cat.id != "all") ? "all" : cat.id
-                            }) {
-                                Text(cat.label)
-                                    .font(.system(size: 12, weight: isSel ? .bold : .medium))
-                                    .foregroundColor(isSel ? .white : AppTheme.textBody(isDark: repo.isDarkMode))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(isSel ? AppTheme.primary : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
-                                    .cornerRadius(12)
-                            }
-                            .buttonStyle(.scaleSpring(scale: 0.94))
-                        }
-                    }
-                }
+            // Row 1: Alpha A-Z & Z-A
+            HStack(spacing: 4) {
+                sortOptionButton(id: "alpha_asc", label: isDual ? "A → Z" : "Alfabetik (A → Z)", isDual: isDual)
+                sortOptionButton(id: "alpha_desc", label: isDual ? "Z → A" : "Alfabetik (Z → A)", isDual: isDual)
             }
 
-            // Öncelik Seçimi
-            VStack(alignment: .leading, spacing: 6) {
-                Text("ÖNCELİK")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-
-                HStack(spacing: 6) {
-                    ForEach(priorities, id: \.id) { prio in
-                        let isSel = repo.selectedPriority == prio.id
-                        Button(action: {
-                            Haptics.light()
-                            repo.selectedPriority = (repo.selectedPriority == prio.id && prio.id != "all") ? "all" : prio.id
-                        }) {
-                            Text(prio.label)
-                                .font(.system(size: 12, weight: isSel ? .bold : .medium))
-                                .foregroundColor(isSel ? .white : AppTheme.textBody(isDark: repo.isDarkMode))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 6)
-                                .background(isSel ? AppTheme.primary : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
-                                .cornerRadius(12)
-                        }
-                        .buttonStyle(.scaleSpring(scale: 0.94))
-                    }
-                }
+            // Row 2: Update Newest & Oldest
+            HStack(spacing: 4) {
+                sortOptionButton(id: "update_desc", label: isDual ? "Yeni → Eski" : "Güncelleme (Yeni → Eski)", isDual: isDual)
+                sortOptionButton(id: "update_asc", label: isDual ? "Eski → Yeni" : "Güncelleme (Eski → Yeni)", isDual: isDual)
             }
 
-            // Filtreleri Temizle
-            if repo.selectedCategory != "all" || repo.selectedPriority != "all" {
-                Button(action: {
-                    Haptics.light()
-                    repo.selectedCategory = "all"
-                    repo.selectedPriority = "all"
-                }) {
-                    Text("Filtreleri Temizle")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color(hex: "#EF4444"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color(hex: "#EF4444").opacity(0.1))
-                        .cornerRadius(10)
-                }
-                .buttonStyle(.scaleSpring(scale: 0.97))
+            // Row 3: Priority Low & High
+            HStack(spacing: 4) {
+                sortOptionButton(id: "priority_asc", label: isDual ? "Düşük → Yüksek" : "Öncelik (Düşük → Yüksek)", isDual: isDual)
+                sortOptionButton(id: "priority_desc", label: isDual ? "Yüksek → Düşük" : "Öncelik (Yüksek → Düşük)", isDual: isDual)
+            }
+
+            // Row 4: Deadline Near & Far
+            HStack(spacing: 4) {
+                sortOptionButton(id: "deadline_asc", label: isDual ? "Yakın → Uzak" : "Bitiş (Yakın → Uzak)", isDual: isDual)
+                sortOptionButton(id: "deadline_asc_rev", label: isDual ? "Uzak → Yakın" : "Bitiş (Uzak → Yakın)", isDual: isDual)
             }
         }
-        .padding(12)
-        .background(repo.isDarkMode ? Color(hex: "#1D1E22") : Color(hex: "#F3F1EE"))
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
+    }
+
+    private func sortOptionButton(id: String, label: String, isDual: Bool) -> some View {
+        let isSelected = repo.sortOption == id
+        return Button(action: {
+            Haptics.light()
+            repo.sortOption = id
+        }) {
+            Text(label)
+                .font(.system(size: isDual ? 10.5 : 12, weight: isSelected ? .bold : .medium))
+                .foregroundColor(isSelected ? (repo.isDarkMode ? Color(hex: "#111215") : .white) : AppTheme.textBody(isDark: repo.isDarkMode))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .frame(height: 30)
+                .background(isSelected ? (repo.isDarkMode ? Color(hex: "#E4E4E7") : Color(hex: "#26272B")) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isSelected ? Color.clear : (repo.isDarkMode ? Color(hex: "#383A42") : Color(hex: "#D5D0C5")), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.scaleSpring(scale: 0.96))
+    }
+
+    // MARK: - Filter Options Panel (Category + Priority Columns 1:1)
+    private func filterOptionsPanel(isDual: Bool) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            // Sol Sütun: KATEGORİ
+            VStack(alignment: .leading, spacing: 4) {
+                Text("KATEGORİ")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                    .padding(.leading, 2)
+                    .padding(.bottom, 1)
+
+                ForEach(categories.filter { $0.id != "all" }, id: \.id) { cat in
+                    let isSel = repo.selectedCategory == cat.id
+                    Button(action: {
+                        Haptics.light()
+                        repo.selectedCategory = (repo.selectedCategory == cat.id) ? "all" : cat.id
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: categoryIconName(cat.id))
+                                .font(.system(size: 11))
+                                .foregroundColor(categoryColor(cat.id))
+                            Text(cat.label)
+                                .font(.system(size: isDual ? 10.5 : 11.5, weight: isSel ? .bold : .medium))
+                                .foregroundColor(isSel ? (repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B")) : AppTheme.textBody(isDark: repo.isDarkMode))
+                                .lineLimit(1)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 6)
+                        .frame(height: 28)
+                        .background(isSel ? categoryColor(cat.id).opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
+                        .cornerRadius(7)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7)
+                                .stroke(isSel ? categoryColor(cat.id) : (repo.isDarkMode ? Color(hex: "#383A42") : Color(hex: "#D5D0C5")), lineWidth: isSel ? 1.5 : 1)
+                        )
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.96))
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            // Sağ Sütun: ÖNCELİK
+            VStack(alignment: .leading, spacing: 4) {
+                Text("ÖNCELİK")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                    .padding(.leading, 2)
+                    .padding(.bottom, 1)
+
+                ForEach(priorities.filter { $0.id != "all" }, id: \.id) { prio in
+                    let isSel = repo.selectedPriority == prio.id
+                    Button(action: {
+                        Haptics.light()
+                        repo.selectedPriority = (repo.selectedPriority == prio.id) ? "all" : prio.id
+                    }) {
+                        HStack(spacing: 5) {
+                            // Signal bars indicator
+                            HStack(alignment: .bottom, spacing: 2) {
+                                ForEach(1...4, id: \.self) { bar in
+                                    RoundedRectangle(cornerRadius: 1)
+                                        .fill(bar <= priorityBarsCount(prio.id) ? priorityColor(prio.id) : Color.gray.opacity(0.3))
+                                        .frame(width: 2.5, height: CGFloat(3 + bar * 2.5))
+                                }
+                            }
+                            .frame(width: 14, height: 13, alignment: .bottom)
+
+                            Text(prio.label)
+                                .font(.system(size: isDual ? 10.5 : 11.5, weight: isSel ? .bold : .medium))
+                                .foregroundColor(isSel ? (repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B")) : AppTheme.textBody(isDark: repo.isDarkMode))
+                                .lineLimit(1)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 6)
+                        .frame(height: 28)
+                        .background(isSel ? priorityColor(prio.id).opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
+                        .cornerRadius(7)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7)
+                                .stroke(isSel ? priorityColor(prio.id) : (repo.isDarkMode ? Color(hex: "#383A42") : Color(hex: "#D5D0C5")), lineWidth: isSel ? 1.5 : 1)
+                        )
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.96))
+                }
+
+                // Clear filter button
+                if repo.selectedCategory != "all" || repo.selectedPriority != "all" {
+                    Button(action: {
+                        Haptics.light()
+                        repo.selectedCategory = "all"
+                        repo.selectedPriority = "all"
+                    }) {
+                        Text("Temizle")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(Color(hex: "#EF4444"))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 24)
+                            .background(Color(hex: "#EF4444").opacity(0.12))
+                            .cornerRadius(6)
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.96))
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func categoryIconName(_ id: String) -> String {
+        switch id {
+        case "ders": return "book.fill"
+        case "proje": return "folder.fill"
+        case "mesleki": return "briefcase.fill"
+        case "hobi": return "paintpalette.fill"
+        default: return "square.grid.2x2.fill"
+        }
+    }
+
+    private func categoryColor(_ id: String) -> Color {
+        switch id {
+        case "ders": return Color(hex: "#3B82F6")
+        case "proje": return Color(hex: "#10B981")
+        case "mesleki": return Color(hex: "#8B5CF6")
+        case "hobi": return Color(hex: "#F97316")
+        default: return Color(hex: "#64748B")
+        }
+    }
+
+    private func priorityBarsCount(_ id: String) -> Int {
+        switch id {
+        case "urgent": return 4
+        case "high": return 3
+        case "normal": return 2
+        case "low": return 1
+        default: return 2
+        }
+    }
+
+    private func priorityColor(_ id: String) -> Color {
+        switch id {
+        case "urgent": return Color(hex: "#EF4444")
+        case "high": return Color(hex: "#F97316")
+        case "normal": return Color(hex: "#FBBF24")
+        case "low": return Color(hex: "#10B981")
+        default: return Color(hex: "#FBBF24")
+        }
     }
 
     // MARK: - Section Header Row (1:1 with SectionHeaderRow in DashboardScreen.kt)

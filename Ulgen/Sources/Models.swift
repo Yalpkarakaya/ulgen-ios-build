@@ -386,7 +386,7 @@ public struct AccountSyncEvent: Codable {
 
     public init(
         eventId: String = UUID().uuidString,
-        senderDeviceId: String = "iPhone 17",
+        senderDeviceId: String = "",
         eventType: String = "DATA_CHANGED",
         projectId: String? = nil,
         timestamp: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
@@ -398,6 +398,32 @@ public struct AccountSyncEvent: Codable {
         self.projectId = projectId
         self.timestamp = timestamp
         self.projectJson = projectJson
+    }
+}
+
+// MARK: - User Profile (Generic, 1:1 with ProfileScreen.kt)
+public struct UserProfile: Codable, Hashable {
+    public var uid: String
+    public var displayName: String
+    public var username: String
+    public var email: String
+    public var avatarUrl: String?
+    public var avatarBase64: String?
+
+    public init(
+        uid: String = UUID().uuidString,
+        displayName: String = "",
+        username: String = "",
+        email: String = "",
+        avatarUrl: String? = nil,
+        avatarBase64: String? = nil
+    ) {
+        self.uid = uid
+        self.displayName = displayName
+        self.username = username
+        self.email = email
+        self.avatarUrl = avatarUrl
+        self.avatarBase64 = avatarBase64
     }
 }
 

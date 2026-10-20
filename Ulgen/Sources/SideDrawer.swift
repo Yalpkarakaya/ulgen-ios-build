@@ -37,7 +37,7 @@ public struct SideDrawer: View {
                             }
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(mqtt.userEmail.isEmpty ? "Misafir Kullanıcı" : "Y Alperen Karakaya")
+                                Text(repo.userProfile.displayName.isEmpty ? (mqtt.userEmail.isEmpty ? "Misafir Kullanıcı" : mqtt.userEmail) : repo.userProfile.displayName)
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.white)
 
@@ -70,7 +70,7 @@ public struct SideDrawer: View {
                             Circle()
                                 .fill(mqtt.isConnected ? Color(hex: "#10B981") : Color(hex: "#F59E0B"))
                                 .frame(width: 8, height: 8)
-                            Text(mqtt.isConnected ? "HiveMQ Çevrimiçi (Galaxy S25+ Senkron)" : "Yerel Mod (Çevrimdışı)")
+                            Text(mqtt.isConnected ? "HiveMQ Çevrimiçi" : "Yerel Mod (Çevrimdışı)")
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(.white.opacity(0.9))
                         }
@@ -97,32 +97,42 @@ public struct SideDrawer: View {
                             sectionHeader("HESAP & BULUT EŞİTLEME")
                             drawerActionItem(icon: "arrow.triangle.2.circlepath", title: "Bulutla Eşitle", subtitle: "Cihazlar arası anlık senkronizasyon") {
                                 Haptics.light()
-                                mqtt.subscribeToAccountChannel()
+                                Task {
+                                    await repo.syncWithCloud()
+                                }
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                     isOpen = false
                                 }
                             }
                             drawerActionItem(icon: "icloud.and.arrow.down", title: "Buluttan İndir", subtitle: "Sunucudaki ana kopyayı cihaza çeker") {
                                 Haptics.light()
-                                mqtt.subscribeToAccountChannel()
+                                Task {
+                                    await repo.syncWithCloud()
+                                }
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                     isOpen = false
                                 }
                             }
 
                             if !mqtt.userEmail.isEmpty {
-                                drawerActionItem(icon: "rectangle.portrait.and.arrow.right", title: "Güvenli Çıkış Yap", subtitle: "Google oturumunu kapat", isDestructive: true) {
+                                drawerActionItem(icon: "rectangle.portrait.and.arrow.right", title: "Güvenli Çıkış Yap", subtitle: "Hesap oturumunu kapat", isDestructive: true) {
                                     Haptics.medium()
                                     mqtt.disconnect()
                                     mqtt.userEmail = ""
+                                    repo.userProfile.email = ""
+                                    repo.saveLocalDataDirect()
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                         isOpen = false
                                     }
                                 }
                             } else {
-                                drawerActionItem(icon: "person.crop.circle.badge.plus", title: "Google Hesabı Bağla", subtitle: "Bulut senkronizasyonu için giriş yap") {
+                                drawerActionItem(icon: "person.crop.circle.badge.plus", title: "Hesap Bağla / Giriş Yap", subtitle: "Bulut senkronizasyonu için hesap bağla") {
                                     Haptics.light()
-                                    mqtt.userEmail = "yalpkarakaya@gmail.com"
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isOpen = false
+                                    }
+                                    onSelectView("profile")
+                                }
                                     mqtt.subscribeToAccountChannel()
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                         isOpen = false

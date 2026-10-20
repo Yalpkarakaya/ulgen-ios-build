@@ -2,6 +2,93 @@ import Foundation
 import Combine
 import SwiftUI
 
+// MARK: - Cloudflare Sync Service (1:1 with Android CloudflareSyncService.kt)
+public enum CloudflareSyncService {
+    public static let baseURL = "https://takip-backend.ulgennotes.workers.dev"
+
+    public static func pushProject(_ project: Project) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/api/project/\(project.id)") else { return false }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        guard let data = try? JSONEncoder().encode(project) else { return false }
+        request.httpBody = data
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            return (response as? HTTPURLResponse)?.statusCode == 200
+        } catch {
+            return false
+        }
+    }
+
+    public static func fetchProject(id: String) async -> Project? {
+        guard let url = URL(string: "\(baseURL)/api/project/\(id)") else { return nil }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if (response as? HTTPURLResponse)?.statusCode == 200 {
+                return try? JSONDecoder().decode(Project.self, from: data)
+            }
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    public static func deleteProject(id: String) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/api/project/\(id)") else { return false }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            return (response as? HTTPURLResponse)?.statusCode == 200
+        } catch {
+            return false
+        }
+    }
+
+    public static func checkUsername(_ username: String) async -> (available: Bool, message: String) {
+        let clean = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().replacingOccurrences(of: "@", with: "")
+        guard !clean.isEmpty, let url = URL(string: "\(baseURL)/api/username/check?username=\(clean)") else {
+            return (true, "Müsait")
+        }
+        do {
+            let (data, resp) = try await URLSession.shared.data(from: url)
+            if (resp as? HTTPURLResponse)?.statusCode == 200,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let available = json["available"] as? Bool {
+                return (available, available ? "Kullanıcı adı müsait" : "Bu kullanıcı adı alınmış")
+            }
+            return (true, "Yerel modda onaylandı")
+        } catch {
+            return (true, "Çevrimdışı onay")
+        }
+    }
+
+    public static func claimUsername(username: String, uid: String, email: String?, displayName: String?) async -> Bool {
+        let clean = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().replacingOccurrences(of: "@", with: "")
+        guard let url = URL(string: "\(baseURL)/api/username/claim") else { return false }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        var dict: [String: String] = ["username": clean, "uid": uid]
+        if let email = email, !email.isEmpty { dict["email"] = email }
+        if let displayName = displayName, !displayName.isEmpty { dict["displayName"] = displayName }
+        guard let body = try? JSONSerialization.data(withJSONObject: dict) else { return false }
+        request.httpBody = body
+        do {
+            let (_, resp) = try await URLSession.shared.data(for: request)
+            return (resp as? HTTPURLResponse)?.statusCode == 200
+        } catch {
+            return true
+        }
+    }
+}
+
+// MARK: - ProjectRepository (1:1 with ProjectRepository.kt)
 public class ProjectRepository: ObservableObject {
     public static let shared = ProjectRepository()
 
@@ -9,16 +96,19 @@ public class ProjectRepository: ObservableObject {
     @Published public var deletedProjectIds: [DeletedItemRecord] = []
     @Published public var notifications: [AppNotification] = []
     @Published public var apiKeys: ApiKeysConfig = ApiKeysConfig()
+    @Published public var userProfile: UserProfile = UserProfile()
     @Published public var isDarkMode: Bool = false
     @Published public var selectedCategory: String = "all"
     @Published public var selectedPriority: String = "all"
     @Published public var searchQuery: String = ""
-    @Published public var sortOption: String = "custom" // "custom", "alpha_asc", "alpha_desc", "update_desc", "update_asc", "priority_asc", "priority_desc", "deadline_asc", "deadline_asc_rev"
+    @Published public var sortOption: String = "custom"
+    @Published public var isSyncing: Bool = false
 
     private let fileURL: URL
     private let deletedFileURL: URL
     private let notifFileURL: URL
     private let apiKeysFileURL: URL
+    private let profileFileURL: URL
 
     public init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -26,6 +116,7 @@ public class ProjectRepository: ObservableObject {
         self.deletedFileURL = docs.appendingPathComponent("deleted_projects.json")
         self.notifFileURL = docs.appendingPathComponent("notifications.json")
         self.apiKeysFileURL = docs.appendingPathComponent("api_keys.json")
+        self.profileFileURL = docs.appendingPathComponent("user_profile.json")
         loadLocalData()
     }
 
@@ -133,7 +224,7 @@ public class ProjectRepository: ObservableObject {
            let loaded = try? JSONDecoder().decode([Project].self, from: data), !loaded.isEmpty {
             self.projects = loaded
         } else {
-            // Android Galaxy S25+ Canlı Ekranı ile 1:1 Tam Eşleşen Projeler
+            // Default sample projects
             self.projects = [
                 Project(
                     id: "ford-gt",
@@ -158,35 +249,7 @@ public class ProjectRepository: ObservableObject {
                                         Item(id: "i1-1", title: "3D modellemesi", completed: false, quantity: 1),
                                         Item(id: "i1-2", title: "Baskı alınması", completed: false, quantity: 1),
                                         Item(id: "i1-3", title: "Zımpara ve astar boya", completed: false, quantity: 1),
-                                        Item(id: "i1-4", title: "Ön tampon birleşimi", completed: false, quantity: 1),
-                                        Item(id: "i1-5", title: "Arka difüzör montajı", completed: false, quantity: 1),
-                                        Item(id: "i1-6", title: "Kaput havalandırma ızgaraları", completed: false, quantity: 1),
-                                        Item(id: "i1-7", title: "Tavan hattı güçlendirmesi", completed: false, quantity: 1),
-                                        Item(id: "i1-8", title: "Yan etek montaj yuvaları", completed: false, quantity: 1),
-                                        Item(id: "i1-9", title: "Farlar için lens yuvası", completed: false, quantity: 1),
-                                        Item(id: "i1-10", title: "Stop lambası yuvaları", completed: false, quantity: 1),
-                                        Item(id: "i1-11", title: "Ayna ve detay parçalar", completed: false, quantity: 1),
-                                        Item(id: "i1-12", title: "Vernik son kat boya", completed: false, quantity: 1)
-                                    ]
-                                ),
-                                SubTopic(
-                                    id: "st1-2",
-                                    title: "Alt kalıp ve Şasi",
-                                    completed: false,
-                                    items: [
-                                        Item(id: "i2-1", title: "Taban plakası kesimi", completed: false, quantity: 1),
-                                        Item(id: "i2-2", title: "Motor yatağı CNC işleme", completed: false, quantity: 1),
-                                        Item(id: "i2-3", title: "Ön süspansiyon geometrisi", completed: false, quantity: 1),
-                                        Item(id: "i2-4", title: "Arka salıncak bağlantıları", completed: false, quantity: 1),
-                                        Item(id: "i2-5", title: "Diferansiyel kutusu montajı", completed: false, quantity: 1),
-                                        Item(id: "i2-6", title: "Şaft hizalama testi", completed: false, quantity: 1),
-                                        Item(id: "i2-7", title: "Batarya yuvası tasarımı", completed: false, quantity: 1),
-                                        Item(id: "i2-8", title: "ESC ve alıcı braketleri", completed: false, quantity: 1),
-                                        Item(id: "i2-9", title: "Direksiyon servosu montajı", completed: false, quantity: 1),
-                                        Item(id: "i2-10", title: "Tekerlek poryaları ve rulmanlar", completed: false, quantity: 1),
-                                        Item(id: "i2-11", title: "Jant ve lastik montajı", completed: false, quantity: 1),
-                                        Item(id: "i2-12", title: "Ağırlık merkezi optimizasyonu", completed: false, quantity: 1),
-                                        Item(id: "i2-13", title: "Son montaj ve sıkılık kontrolü", completed: false, quantity: 1)
+                                        Item(id: "i1-4", title: "Ön tampon birleşimi", completed: false, quantity: 1)
                                     ]
                                 )
                             ]
@@ -200,75 +263,40 @@ public class ProjectRepository: ObservableObject {
                         textColor: "#FACC15"
                     ),
                     pinned: true
-                ),
-                Project(
-                    id: "edat",
-                    title: "EDAT",
-                    description: "",
-                    category: "ders",
-                    priority: "high",
-                    startDate: "2026-10-14",
-                    deadline: nil,
-                    progress: 0,
-                    mainTopics: [],
-                    pinned: true
-                ),
-                Project(
-                    id: "otomasyon",
-                    title: "Otomasyon",
-                    description: "",
-                    category: "ders",
-                    priority: "high",
-                    startDate: "2026-10-14",
-                    deadline: nil,
-                    progress: 0,
-                    mainTopics: [],
-                    pinned: true
-                ),
-                Project(
-                    id: "isaret",
-                    title: "İşaret",
-                    description: "",
-                    category: "ders",
-                    priority: "high",
-                    startDate: "2026-10-14",
-                    deadline: nil,
-                    progress: 0,
-                    mainTopics: [],
-                    pinned: true
-                ),
-                Project(
-                    id: "gsa-2",
-                    title: "GSA 2",
-                    description: "",
-                    category: "ders",
-                    priority: "high",
-                    startDate: "2026-10-14",
-                    deadline: nil,
-                    progress: 0,
-                    mainTopics: [],
-                    pinned: true
                 )
             ]
-            saveLocalData()
+            saveLocalDataDirect()
         }
 
-        // Load other tables
         if let data = try? Data(contentsOf: deletedFileURL),
            let loaded = try? JSONDecoder().decode([DeletedItemRecord].self, from: data) {
             self.deletedProjectIds = loaded
         }
+
         if let data = try? Data(contentsOf: notifFileURL),
            let loaded = try? JSONDecoder().decode([AppNotification].self, from: data) {
             self.notifications = loaded
         }
+
         if let data = try? Data(contentsOf: apiKeysFileURL),
            let loaded = try? JSONDecoder().decode(ApiKeysConfig.self, from: data) {
             self.apiKeys = loaded
         }
+
+        if let data = try? Data(contentsOf: profileFileURL),
+           let loaded = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            self.userProfile = loaded
+        } else {
+            let email = UserDefaults.standard.string(forKey: "ulgen_sync_email") ?? ""
+            self.userProfile = UserProfile(
+                displayName: email.isEmpty ? "Kullanıcı" : email.components(separatedBy: "@").first?.capitalized ?? "Kullanıcı",
+                username: email.isEmpty ? "kullanici" : email.components(separatedBy: "@").first?.lowercased() ?? "kullanici",
+                email: email
+            )
+        }
     }
 
-    public func saveLocalData() {
+    public func saveLocalDataDirect() {
         if let data = try? JSONEncoder().encode(projects) {
             try? data.write(to: fileURL)
         }
@@ -280,6 +308,90 @@ public class ProjectRepository: ObservableObject {
         }
         if let data = try? JSONEncoder().encode(apiKeys) {
             try? data.write(to: apiKeysFileURL)
+        }
+        if let data = try? JSONEncoder().encode(userProfile) {
+            try? data.write(to: profileFileURL)
+        }
+    }
+
+    public func saveLocalData(modifiedProjectId: String? = nil, isDeletion: Bool = false) {
+        saveLocalDataDirect()
+
+        // Real-Time Cross-Device Sync Broadcast (HiveMQ MQTT & Cloudflare Worker KV)
+        if isDeletion, let delId = modifiedProjectId {
+            MqttSyncEngine.shared.broadcastProjectDelete(id: delId)
+            Task {
+                _ = await CloudflareSyncService.deleteProject(id: delId)
+            }
+        } else if let modId = modifiedProjectId, let project = projects.first(where: { $0.id == modId }) {
+            MqttSyncEngine.shared.broadcastProjectChange(project)
+            Task {
+                _ = await CloudflareSyncService.pushProject(project)
+            }
+        } else {
+            let event = AccountSyncEvent(
+                senderDeviceId: MqttSyncEngine.shared.deviceId,
+                eventType: "STATE_SYNC",
+                timestamp: Int64(Date().timeIntervalSince1970 * 1000)
+            )
+            MqttSyncEngine.shared.broadcastAccountEvent(event)
+        }
+    }
+
+    // MARK: - Incoming Remote Sync Handlers
+    public func mergeIncomingProject(_ incoming: Project) {
+        // Tombstone Check
+        if let tombstone = deletedProjectIds.first(where: { $0.id == incoming.id }) {
+            if incoming.lastUpdated <= tombstone.deletedAt + 10_000 {
+                return
+            }
+        }
+
+        if let idx = projects.firstIndex(where: { $0.id == incoming.id }) {
+            // Last-Write-Wins (LWW)
+            if incoming.lastUpdated >= projects[idx].lastUpdated {
+                projects[idx] = incoming
+                recalculateProgress(projectId: incoming.id)
+                saveLocalDataDirect()
+            }
+        } else {
+            projects.insert(incoming, at: 0)
+            recalculateProgress(projectId: incoming.id)
+            saveLocalDataDirect()
+        }
+    }
+
+    public func deleteProjectLocally(id: String) {
+        projects.removeAll { $0.id == id }
+        if !deletedProjectIds.contains(where: { $0.id == id }) {
+            deletedProjectIds.append(DeletedItemRecord(id: id, deletedAt: Int64(Date().timeIntervalSince1970 * 1000)))
+        }
+        saveLocalDataDirect()
+    }
+
+    public func syncWithCloud() async {
+        DispatchQueue.main.async {
+            self.isSyncing = true
+        }
+
+        for p in projects {
+            if let remote = await CloudflareSyncService.fetchProject(id: p.id) {
+                DispatchQueue.main.async {
+                    self.mergeIncomingProject(remote)
+                }
+            }
+        }
+
+        let event = AccountSyncEvent(
+            senderDeviceId: MqttSyncEngine.shared.deviceId,
+            eventType: "STATE_SYNC",
+            timestamp: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        MqttSyncEngine.shared.broadcastAccountEvent(event)
+
+        DispatchQueue.main.async {
+            self.isSyncing = false
+            MqttSyncEngine.shared.lastSyncTimestamp = Date()
         }
     }
 
@@ -303,7 +415,7 @@ public class ProjectRepository: ObservableObject {
             customColors: customColors
         )
         projects.insert(newP, at: 0)
-        saveLocalData()
+        saveLocalData(modifiedProjectId: newP.id)
     }
 
     public func updateProject(_ project: Project) {
@@ -311,7 +423,7 @@ public class ProjectRepository: ObservableObject {
             var updated = project
             updated.lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
             projects[idx] = updated
-            saveLocalData()
+            saveLocalData(modifiedProjectId: updated.id)
         }
     }
 
@@ -319,7 +431,7 @@ public class ProjectRepository: ObservableObject {
         if let idx = projects.firstIndex(where: { $0.id == id }) {
             projects[idx].pinned.toggle()
             projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-            saveLocalData()
+            saveLocalData(modifiedProjectId: id)
         }
     }
 
@@ -327,7 +439,7 @@ public class ProjectRepository: ObservableObject {
         if let idx = projects.firstIndex(where: { $0.id == id }) {
             projects[idx].archived.toggle()
             projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-            saveLocalData()
+            saveLocalData(modifiedProjectId: id)
         }
     }
 
@@ -335,7 +447,7 @@ public class ProjectRepository: ObservableObject {
         if let idx = projects.firstIndex(where: { $0.id == id }) {
             projects[idx].deleted = true
             projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-            saveLocalData()
+            saveLocalData(modifiedProjectId: id)
         }
     }
 
@@ -343,7 +455,7 @@ public class ProjectRepository: ObservableObject {
         if let idx = projects.firstIndex(where: { $0.id == id }) {
             projects[idx].deleted = false
             projects[idx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
-            saveLocalData()
+            saveLocalData(modifiedProjectId: id)
         }
     }
 
@@ -351,7 +463,7 @@ public class ProjectRepository: ObservableObject {
         if let idx = projects.firstIndex(where: { $0.id == id }) {
             projects.remove(at: idx)
             deletedProjectIds.append(DeletedItemRecord(id: id, deletedAt: Int64(Date().timeIntervalSince1970 * 1000)))
-            saveLocalData()
+            saveLocalData(modifiedProjectId: id, isDeletion: true)
         }
     }
 
@@ -370,41 +482,57 @@ public class ProjectRepository: ObservableObject {
             estimatedHours: estimatedHours
         )
         projects[pIdx].mainTopics.append(newTopic)
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         recalculateProgress(projectId: projectId)
-        saveLocalData()
+        saveLocalData(modifiedProjectId: projectId)
     }
 
     public func updateMainTopic(projectId: String, topic: MainTopic) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
         if let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == topic.id }) {
             projects[pIdx].mainTopics[tIdx] = topic
+            projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
             recalculateProgress(projectId: projectId)
-            saveLocalData()
+            saveLocalData(modifiedProjectId: projectId)
         }
     }
 
     public func deleteMainTopic(projectId: String, topicId: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
         projects[pIdx].mainTopics.removeAll { $0.id == topicId }
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         recalculateProgress(projectId: projectId)
-        saveLocalData()
+        saveLocalData(modifiedProjectId: projectId)
     }
 
-    public func addSubTopic(projectId: String, mainTopicId: String, title: String) {
+    public func addSubTopic(projectId: String, mainTopicId: String, title: String, description: String = "") {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
               let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == mainTopicId }) else { return }
-        let newSub = SubTopic(title: title)
+        let newSub = SubTopic(title: title, description: description)
         projects[pIdx].mainTopics[tIdx].subTopics.append(newSub)
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         recalculateProgress(projectId: projectId)
-        saveLocalData()
+        saveLocalData(modifiedProjectId: projectId)
+    }
+
+    public func updateSubTopic(projectId: String, mainTopicId: String, subTopic: SubTopic) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == mainTopicId }) else { return }
+        if let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopic.id }) {
+            projects[pIdx].mainTopics[tIdx].subTopics[sIdx] = subTopic
+            projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+            recalculateProgress(projectId: projectId)
+            saveLocalData(modifiedProjectId: projectId)
+        }
     }
 
     public func deleteSubTopic(projectId: String, mainTopicId: String, subTopicId: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
               let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == mainTopicId }) else { return }
         projects[pIdx].mainTopics[tIdx].subTopics.removeAll { $0.id == subTopicId }
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         recalculateProgress(projectId: projectId)
-        saveLocalData()
+        saveLocalData(modifiedProjectId: projectId)
     }
 
     public func addItem(projectId: String, mainTopicId: String, subTopicId: String, title: String, quantity: Int = 1) {
@@ -413,8 +541,9 @@ public class ProjectRepository: ObservableObject {
               let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopicId }) else { return }
         let newItem = Item(title: title, quantity: quantity)
         projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.append(newItem)
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         recalculateProgress(projectId: projectId)
-        saveLocalData()
+        saveLocalData(modifiedProjectId: projectId)
     }
 
     public func toggleItem(projectId: String, topicId: String, subTopicId: String, itemId: String) {
@@ -424,8 +553,9 @@ public class ProjectRepository: ObservableObject {
               let iIdx = projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.firstIndex(where: { $0.id == itemId }) else { return }
 
         projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items[iIdx].completed.toggle()
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         recalculateProgress(projectId: projectId)
-        saveLocalData()
+        saveLocalData(modifiedProjectId: projectId)
     }
 
     public func updateItemQuantity(projectId: String, topicId: String, subTopicId: String, itemId: String, delta: Int) {
@@ -436,7 +566,8 @@ public class ProjectRepository: ObservableObject {
 
         let cur = projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items[iIdx].quantity
         projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items[iIdx].quantity = max(1, cur + delta)
-        saveLocalData()
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        saveLocalData(modifiedProjectId: projectId)
     }
 
     public func deleteItem(projectId: String, topicId: String, subTopicId: String, itemId: String) {
@@ -445,20 +576,23 @@ public class ProjectRepository: ObservableObject {
               let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopicId }) else { return }
 
         projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.removeAll { $0.id == itemId }
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         recalculateProgress(projectId: projectId)
-        saveLocalData()
+        saveLocalData(modifiedProjectId: projectId)
     }
 
     public func addNote(projectId: String, content: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
         projects[pIdx].notes.insert(Note(content: content), at: 0)
-        saveLocalData()
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        saveLocalData(modifiedProjectId: projectId)
     }
 
     public func deleteNote(projectId: String, noteId: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
         projects[pIdx].notes.removeAll { $0.id == noteId }
-        saveLocalData()
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        saveLocalData(modifiedProjectId: projectId)
     }
 
     public func recalculateProgress(projectId: String) {
@@ -488,13 +622,26 @@ public class ProjectRepository: ObservableObject {
         } else {
             projects[pIdx].chatSessions[0].messages.append(newMsg)
         }
-        saveLocalData()
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        saveLocalData(modifiedProjectId: projectId)
+    }
+
+    public func updateUserProfile(displayName: String, username: String, email: String) {
+        self.userProfile.displayName = displayName
+        self.userProfile.username = username
+        self.userProfile.email = email
+        saveLocalDataDirect()
+
+        // Also update MqttSyncEngine email if changed
+        if MqttSyncEngine.shared.userEmail != email {
+            MqttSyncEngine.shared.userEmail = email
+        }
     }
 
     public func resetAllData() {
         projects.removeAll()
         deletedProjectIds.removeAll()
         notifications.removeAll()
-        saveLocalData()
+        saveLocalDataDirect()
     }
 }

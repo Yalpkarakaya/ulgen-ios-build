@@ -96,8 +96,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.3.2 --yes || true
-          gh release create v1.3.2 Ulgen.ipa Ulgen-Simulator.zip screenshot_iphone.png \
-            --title "Ülgen iOS v1.3.2 (Fullscreen Fix, Zero-Lag Scroll, Sign Out Parity)" \
-            --notes "1:1 Android Kotlin/Compose paritesi: UILaunchScreen ile tam ekran yerel kenarsız çözünürlük (siyah boşluklar giderildi), akıcı kaydırma (çakışan sürükleme kaldırıldı), yan menü Güvenli Çıkış Yap (Sign Out) butonu, ARM64 IPA ve güncel sanal simülatör paketi." \
+          gh release delete v1.3.3 --yes || true
+          gh release create v1.3.3 Ulgen.ipa Ulgen-Simulator.zip screenshot_iphone.png \
+            --title "Ülgen iOS v1.3.3 (1:1 Android Parity, Real MQTT 3.1.1 Sync, Dual Accordion, Generic Profile)" \
+            --notes "1:1 Android Kotlin/Compose Tam Parite Paketi:
+            - Dual Accordion Paritesi: Sıralama Ölçütü ve Filtreler akordeonu Android DashboardScreen.kt ile 1:1 çift sütunlu fermuar yerleşimine kavuşturuldu, iki panel aynı anda açıldığında yan yana (50/50) konumlanıyor.
+            - Gerçek MQTT 3.1.1 Senkronizasyonu: HiveMQ TCP (1883) üzerinden standart ikili MQTT çerçevelemesi ve 24 karakterlik SHA-256 konu eşleşmesi (ulgen/account/{hash24}) sağlandı; Android ve iOS arasında anlık çift yönlü senkronizasyon çalışıyor.
+            - Cloudflare Worker KV Entegrasyonu: Proje değişiklikleri ve kullanıcı adı doğrulaması takip-backend üzerinde eşzamanlanıyor.
+            - Sıfır Hardcoding / Genel Kullanıcı Mimarisi: Tüm kişisel geliştirici cihaz adları (S25+, Tab S9) ve sabit test e-postaları temizlendi; her kullanıcı kendi hesabını bağlayabilir.
+            - Tam Profil Ekranı (ProfileScreen.kt): Kullanıcı profili, bulut eşitleme, AI API havuzu (Gemini, OpenAI, Claude, DeepSeek) ve yerel veri yönetimi.
+            - Hareket ve Animasyonlar: Pull-to-refresh (kaydırarak yenileme), alt arşiv çekme butonu ve yay animasyonları." \
             --target ${{ github.sha }} || true
