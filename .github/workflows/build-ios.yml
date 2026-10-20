@@ -15,6 +15,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Select Xcode
+        run: |
+          if [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app
+          elif [ -d "/Applications/Xcode_16.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.app
+          fi
+          xcodebuild -version
+
       - name: Install xcodegen
         run: brew install xcodegen
 
@@ -37,11 +46,12 @@ jobs:
           DEVICE_ID=$(xcrun simctl list devices available | grep "iPhone" | head -n 1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
           echo "Selected virtual device ID: $DEVICE_ID"
           xcrun simctl boot "$DEVICE_ID" || true
-          sleep 5
+          sleep 8
           xcrun simctl install "$DEVICE_ID" build_sim/Build/Products/Release-iphonesimulator/Ulgen.app
           xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen
           sleep 6
-          xcrun simctl io "$DEVICE_ID" screenshot screenshot_iphone.png
+          xcrun simctl io "$DEVICE_ID" screenshot screenshot_iphone.png || xcrun simctl io booted screenshot screenshot_iphone.png
+          ls -lh screenshot_iphone.png
           echo "Virtual iPhone screenshot captured successfully!"
 
       - name: Build for ARM64 iOS Device

@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: com.yalp
   deploymentTarget:
     iOS: "16.0"
+  xcodeVersion: "15.0"
 targets:
   Ulgen:
     type: application
