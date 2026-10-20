@@ -92,7 +92,7 @@ public struct CategorySpec {
             return CategorySpec(
                 id: "ders",
                 label: "Ders",
-                systemImage: "book.closed",
+                systemImage: "book.closed.fill",
                 accentColor: Color(hex: "#2563EB"),
                 bgColor: isDarkMode ? Color(hex: "#1E3A8A").opacity(0.28) : Color(hex: "#DBEAFE"),
                 textColor: isDarkMode ? Color(hex: "#93C5FD") : Color(hex: "#1D4ED8"),
@@ -112,7 +112,7 @@ public struct CategorySpec {
             return CategorySpec(
                 id: "mesleki",
                 label: "Mesleki",
-                systemImage: "briefcase",
+                systemImage: "briefcase.fill",
                 accentColor: Color(hex: "#7C3AED"),
                 bgColor: isDarkMode ? Color(hex: "#581C87").opacity(0.28) : Color(hex: "#EDE9FE"),
                 textColor: isDarkMode ? Color(hex: "#C4B5FD") : Color(hex: "#6D28D9"),
@@ -122,7 +122,7 @@ public struct CategorySpec {
             return CategorySpec(
                 id: "hobi",
                 label: "Hobi",
-                systemImage: "paintpalette",
+                systemImage: "paintpalette.fill",
                 accentColor: Color(hex: "#EA580C"),
                 bgColor: isDarkMode ? Color(hex: "#7C2D12").opacity(0.28) : Color(hex: "#FFEDD5"),
                 textColor: isDarkMode ? Color(hex: "#FDBA74") : Color(hex: "#C2410C"),
@@ -132,7 +132,7 @@ public struct CategorySpec {
             return CategorySpec(
                 id: "kisisel",
                 label: "Kişisel",
-                systemImage: "person",
+                systemImage: "person.fill",
                 accentColor: Color(hex: "#9333EA"),
                 bgColor: isDarkMode ? Color(hex: "#581C87").opacity(0.28) : Color(hex: "#F3E8FF"),
                 textColor: isDarkMode ? Color(hex: "#D8B4FE") : Color(hex: "#7E22CE"),
@@ -260,6 +260,60 @@ public struct CategoryVectorIconView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(spec.accentColor)
         }
+    }
+}
+
+// MARK: - Six Dot Drag Handle View (1:1 with SixDotDragHandle in ProjectCard.kt)
+public struct SixDotDragHandleView: View {
+    public var tint: Color
+
+    public init(tint: Color = Color.gray.opacity(0.45)) {
+        self.tint = tint
+    }
+
+    public var body: some View {
+        HStack(spacing: 2.5) {
+            VStack(spacing: 3) {
+                Circle().fill(tint).frame(width: 2.5, height: 2.5)
+                Circle().fill(tint).frame(width: 2.5, height: 2.5)
+                Circle().fill(tint).frame(width: 2.5, height: 2.5)
+            }
+            VStack(spacing: 3) {
+                Circle().fill(tint).frame(width: 2.5, height: 2.5)
+                Circle().fill(tint).frame(width: 2.5, height: 2.5)
+                Circle().fill(tint).frame(width: 2.5, height: 2.5)
+            }
+        }
+        .frame(width: 14, height: 20)
+    }
+}
+
+// MARK: - Hex Color Parser Helper
+public func parseHexColor(_ hex: String?) -> Color? {
+    guard let hex = hex?.trimmingCharacters(in: .whitespacesAndNewlines), !hex.isEmpty else { return nil }
+    var clean = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+    if clean.count == 3 {
+        clean = clean.map { "\($0)\($0)" }.joined()
+    }
+    guard clean.count == 6 || clean.count == 8 else { return nil }
+    var int: UInt64 = 0
+    guard Scanner(string: clean).scanHexInt64(&int) else { return nil }
+    if clean.count == 6 {
+        return Color(
+            .sRGB,
+            red: Double((int >> 16) & 0xFF) / 255.0,
+            green: Double((int >> 8) & 0xFF) / 255.0,
+            blue: Double(int & 0xFF) / 255.0,
+            opacity: 1.0
+        )
+    } else {
+        return Color(
+            .sRGB,
+            red: Double((int >> 16) & 0xFF) / 255.0,
+            green: Double((int >> 8) & 0xFF) / 255.0,
+            blue: Double(int & 0xFF) / 255.0,
+            opacity: Double((int >> 24) & 0xFF) / 255.0
+        )
     }
 }
 

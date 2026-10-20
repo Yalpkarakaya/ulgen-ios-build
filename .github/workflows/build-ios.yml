@@ -50,6 +50,7 @@ jobs:
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
           sleep 4
+          xcrun simctl ui "$DEVICE_ID" appearance light
           xcrun simctl install "$DEVICE_ID" build_sim/Build/Products/Release-iphonesimulator/Ulgen.app
           xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen
           sleep 6

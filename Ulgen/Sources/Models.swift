@@ -341,6 +341,7 @@ public struct CustomColorConfig: Codable, Hashable {
     public var accentColor: String?
     public var cardBg: String?
     public var border: String?
+    public var borderColor: String?
     public var progressBar: String?
     public var textColor: String?
 
@@ -350,6 +351,7 @@ public struct CustomColorConfig: Codable, Hashable {
         accentColor: String? = nil,
         cardBg: String? = nil,
         border: String? = nil,
+        borderColor: String? = nil,
         progressBar: String? = nil,
         textColor: String? = nil
     ) {
@@ -358,6 +360,7 @@ public struct CustomColorConfig: Codable, Hashable {
         self.accentColor = accentColor
         self.cardBg = cardBg
         self.border = border
+        self.borderColor = borderColor ?? border
         self.progressBar = progressBar
         self.textColor = textColor
     }

@@ -9,7 +9,7 @@ public class ProjectRepository: ObservableObject {
     @Published public var deletedProjectIds: [DeletedItemRecord] = []
     @Published public var notifications: [AppNotification] = []
     @Published public var apiKeys: ApiKeysConfig = ApiKeysConfig()
-    @Published public var isDarkMode: Bool = true
+    @Published public var isDarkMode: Bool = false
     @Published public var selectedCategory: String = "all"
     @Published public var selectedPriority: String = "all"
     @Published public var searchQuery: String = ""
@@ -133,100 +133,121 @@ public class ProjectRepository: ObservableObject {
            let loaded = try? JSONDecoder().decode([Project].self, from: data), !loaded.isEmpty {
             self.projects = loaded
         } else {
-            // Android ProjectFileStore.kt ile 1:1 Tam Eşleşen Başlangıç Verileri
+            // Android Galaxy S25+ Canlı Ekranı ile 1:1 Tam Eşleşen Projeler
             self.projects = [
                 Project(
-                    id: "sample-p1-kotlin",
-                    title: "Kotlin & Jetpack Compose ile Android Geliştirme",
-                    description: "Modern deklaratif UI mimarisi ve saf Kotlin ile uçtan uca native mobil uygulama geliştirme süreci.",
-                    category: "proje",
+                    id: "ford-gt",
+                    title: "Ford GT",
+                    description: "1/10 - 1/12 karması boyutta RC araba tasarımı. 3D tasarımı ve baskısı; haberleşme, kontrol ve güç sistemlerinin tasarımı özgün olacak şekilde tasarlanmıştır.",
+                    category: "hobi",
                     priority: "high",
-                    startDate: "2026-01-10",
-                    deadline: "2026-12-31",
-                    progress: 50,
+                    startDate: "2026-06-23",
+                    deadline: nil,
+                    progress: 9,
                     mainTopics: [
                         MainTopic(
-                            id: "t1",
-                            title: "1. Temel Kotlin ve Modern Android Mimarisi",
-                            description: "Coroutines, Flow, MVVM ve State yönetimi prensipleri.",
+                            id: "t1-ford",
+                            title: "1. Dış genel tasarım",
+                            description: "3D gövde ve aerodinamik kalıp çalışmaları",
                             subTopics: [
                                 SubTopic(
                                     id: "st1-1",
-                                    title: "Kotlin Coroutines & Asenkron Programlama",
-                                    completed: true,
+                                    title: "Üst kalıp",
+                                    completed: false,
                                     items: [
-                                        Item(title: "Dispatcher ve Scope yönetimi", completed: true, quantity: 1),
-                                        Item(title: "StateFlow ve SharedFlow kullanımı", completed: true, quantity: 1)
-                                    ],
-                                    notes: [Note(content: "StateFlow, UI state'lerini saklamak ve gözlemlemek için en iyi pratiktir.")]
+                                        Item(id: "i1-1", title: "3D modellemesi", completed: false, quantity: 1),
+                                        Item(id: "i1-2", title: "Baskı alınması", completed: false, quantity: 1),
+                                        Item(id: "i1-3", title: "Zımpara ve astar boya", completed: false, quantity: 1),
+                                        Item(id: "i1-4", title: "Ön tampon birleşimi", completed: false, quantity: 1),
+                                        Item(id: "i1-5", title: "Arka difüzör montajı", completed: false, quantity: 1),
+                                        Item(id: "i1-6", title: "Kaput havalandırma ızgaraları", completed: false, quantity: 1),
+                                        Item(id: "i1-7", title: "Tavan hattı güçlendirmesi", completed: false, quantity: 1),
+                                        Item(id: "i1-8", title: "Yan etek montaj yuvaları", completed: false, quantity: 1),
+                                        Item(id: "i1-9", title: "Farlar için lens yuvası", completed: false, quantity: 1),
+                                        Item(id: "i1-10", title: "Stop lambası yuvaları", completed: false, quantity: 1),
+                                        Item(id: "i1-11", title: "Ayna ve detay parçalar", completed: false, quantity: 1),
+                                        Item(id: "i1-12", title: "Vernik son kat boya", completed: false, quantity: 1)
+                                    ]
                                 ),
                                 SubTopic(
                                     id: "st1-2",
-                                    title: "Jetpack Compose Deklaratif UI Temelleri",
-                                    completed: true,
-                                    items: [
-                                        Item(title: "Composable fonksiyonlar ve Modifier zincirleri", completed: true, quantity: 1),
-                                        Item(title: "State Hoisting ve Unidirectional Data Flow", completed: true, quantity: 1)
-                                    ]
-                                )
-                            ]
-                        ),
-                        MainTopic(
-                            id: "t2",
-                            title: "2. Veri Yönetimi ve Yerel Depolama",
-                            description: "DataStore, Room ve Dosya Tabanlı JSON depolama.",
-                            subTopics: [
-                                SubTopic(
-                                    id: "st2-1",
-                                    title: "Preferences & Proto DataStore",
+                                    title: "Alt kalıp ve Şasi",
                                     completed: false,
                                     items: [
-                                        Item(title: "Kullanıcı ayarlarının asenkron saklanması", completed: false, quantity: 1),
-                                        Item(title: "Karanlık/Aydınlık mod persistansı", completed: true, quantity: 1)
-                                    ]
-                                ),
-                                SubTopic(
-                                    id: "st2-2",
-                                    title: "Gist / Bulut Yedekleme Entegrasyonu",
-                                    completed: false,
-                                    items: [
-                                        Item(title: "GitHub Gist REST API entegrasyonu", completed: false, quantity: 1),
-                                        Item(title: "Otomatik çift yönlü senkronizasyon", completed: false, quantity: 1)
+                                        Item(id: "i2-1", title: "Taban plakası kesimi", completed: false, quantity: 1),
+                                        Item(id: "i2-2", title: "Motor yatağı CNC işleme", completed: false, quantity: 1),
+                                        Item(id: "i2-3", title: "Ön süspansiyon geometrisi", completed: false, quantity: 1),
+                                        Item(id: "i2-4", title: "Arka salıncak bağlantıları", completed: false, quantity: 1),
+                                        Item(id: "i2-5", title: "Diferansiyel kutusu montajı", completed: false, quantity: 1),
+                                        Item(id: "i2-6", title: "Şaft hizalama testi", completed: false, quantity: 1),
+                                        Item(id: "i2-7", title: "Batarya yuvası tasarımı", completed: false, quantity: 1),
+                                        Item(id: "i2-8", title: "ESC ve alıcı braketleri", completed: false, quantity: 1),
+                                        Item(id: "i2-9", title: "Direksiyon servosu montajı", completed: false, quantity: 1),
+                                        Item(id: "i2-10", title: "Tekerlek poryaları ve rulmanlar", completed: false, quantity: 1),
+                                        Item(id: "i2-11", title: "Jant ve lastik montajı", completed: false, quantity: 1),
+                                        Item(id: "i2-12", title: "Ağırlık merkezi optimizasyonu", completed: false, quantity: 1),
+                                        Item(id: "i2-13", title: "Son montaj ve sıkılık kontrolü", completed: false, quantity: 1)
                                     ]
                                 )
                             ]
                         )
                     ],
+                    customColors: CustomColorConfig(
+                        cardBg: "#000000",
+                        border: "#FACC15",
+                        borderColor: "#FACC15",
+                        progressBar: "#84CC16",
+                        textColor: "#FACC15"
+                    ),
                     pinned: true
                 ),
                 Project(
-                    id: "sample-p2-ai",
-                    title: "Yapay Zeka & Derin Öğrenme Çalışmaları",
-                    description: "Modern transformer mimarileri ve makine öğrenimi modelleri üzerine araştırma ve uygulama planı.",
+                    id: "edat",
+                    title: "EDAT",
+                    description: "",
                     category: "ders",
-                    priority: "medium",
-                    startDate: "2026-03-01",
-                    deadline: "2026-10-15",
-                    progress: 25,
-                    mainTopics: [
-                        MainTopic(
-                            id: "t2-1",
-                            title: "1. Matematiksel Temeller & Python Kütüphaneleri",
-                            description: "Lineer cebir, olasılık ve PyTorch temelleri.",
-                            subTopics: [
-                                SubTopic(
-                                    id: "st2-1-1",
-                                    title: "PyTorch Tensor İşlemleri & Autograd",
-                                    completed: false,
-                                    items: [
-                                        Item(title: "Tensor manipülasyonları ve GPU kullanımı", completed: true, quantity: 1),
-                                        Item(title: "Geriye yayılım (Backpropagation) hesapları", completed: false, quantity: 1)
-                                    ]
-                                )
-                            ]
-                        )
-                    ],
-                    pinned: false
+                    priority: "high",
+                    startDate: "2026-10-14",
+                    deadline: nil,
+                    progress: 0,
+                    mainTopics: [],
+                    pinned: true
+                ),
+                Project(
+                    id: "otomasyon",
+                    title: "Otomasyon",
+                    description: "",
+                    category: "ders",
+                    priority: "high",
+                    startDate: "2026-10-14",
+                    deadline: nil,
+                    progress: 0,
+                    mainTopics: [],
+                    pinned: true
+                ),
+                Project(
+                    id: "isaret",
+                    title: "İşaret",
+                    description: "",
+                    category: "ders",
+                    priority: "high",
+                    startDate: "2026-10-14",
+                    deadline: nil,
+                    progress: 0,
+                    mainTopics: [],
+                    pinned: true
+                ),
+                Project(
+                    id: "gsa-2",
+                    title: "GSA 2",
+                    description: "",
+                    category: "ders",
+                    priority: "high",
+                    startDate: "2026-10-14",
+                    deadline: nil,
+                    progress: 0,
+                    mainTopics: [],
+                    pinned: true
                 )
             ]
             saveLocalData()

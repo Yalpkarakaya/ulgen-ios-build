@@ -79,20 +79,52 @@ public struct DashboardView: View {
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                             }
 
-                            // Proje Kartları Listesi
+                            // Proje Kartları Listesi (Sabitlenenler ve Tüm Projeler 1:1 Parite)
                             if repo.filteredProjects.isEmpty {
                                 emptyStateCard
                             } else {
-                                LazyVStack(spacing: 14) {
-                                    ForEach(repo.filteredProjects) { project in
-                                        NavigationLink(destination: DetailView(projectId: project.id)) {
-                                            ProjectCardView(project: project, isDark: repo.isDarkMode) {
-                                                self.sharingProject = project
+                                let pinnedProjects = repo.filteredProjects.filter { $0.pinned }
+                                let unpinnedProjects = repo.filteredProjects.filter { !$0.pinned }
+
+                                LazyVStack(spacing: 12) {
+                                    if !pinnedProjects.isEmpty {
+                                        sectionHeader(title: "Sabitlenenler", count: pinnedProjects.count, icon: "pin.fill")
+
+                                        ForEach(pinnedProjects) { project in
+                                            NavigationLink(destination: DetailView(projectId: project.id)) {
+                                                ProjectCardView(project: project, isDark: repo.isDarkMode) {
+                                                    self.sharingProject = project
+                                                }
                                             }
+                                            .buttonStyle(PlainButtonStyle())
                                         }
-                                        .buttonStyle(PlainButtonStyle())
+                                    }
+
+                                    if !unpinnedProjects.isEmpty {
+                                        sectionHeader(title: "Tüm Projeler", count: unpinnedProjects.count, icon: nil)
+
+                                        ForEach(unpinnedProjects) { project in
+                                            NavigationLink(destination: DetailView(projectId: project.id)) {
+                                                ProjectCardView(project: project, isDark: repo.isDarkMode) {
+                                                    self.sharingProject = project
+                                                }
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                        }
                                     }
                                 }
+
+                                // 1:1 Android Alt Arşiv Çekme İpucu
+                                HStack(spacing: 6) {
+                                    Image(systemName: "chevron.up")
+                                        .font(.system(size: 11, weight: .bold))
+                                    Text("Arşivi görmek için yukarı kaydırın")
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .foregroundColor(Color(hex: "#94A3B8"))
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 14)
+                                .padding(.bottom, 8)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -161,20 +193,20 @@ public struct DashboardView: View {
 
                 // Sağ: Tema, Bildirim ve Menü İkon Butonları (40x40dp Neumorphic Glass)
                 HStack(spacing: 8) {
-                    // Dark Mode Toggle
+                    // Dark Mode Toggle (1:1 Android HeaderActionIconButton)
                     Button(action: {
                         Haptics.light()
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             repo.isDarkMode.toggle()
                         }
                     }) {
-                        Image(systemName: repo.isDarkMode ? "sun.max.fill" : "moon.stars.fill")
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundColor(repo.isDarkMode ? Color(hex: "#FDE047") : AppTheme.textHeading(isDark: false))
+                        Image(systemName: repo.isDarkMode ? "sun.max.fill" : "moon.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(repo.isDarkMode ? Color(hex: "#FDE047") : Color(hex: "#1E293B"))
                             .frame(width: 40, height: 40)
-                            .background(AppTheme.card(isDark: repo.isDarkMode))
+                            .background(repo.isDarkMode ? Color(hex: "#292524") : Color.white)
                             .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#E2DDD5"), lineWidth: 1))
                             .shadow(color: repo.isDarkMode ? Color.black.opacity(0.3) : Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                     }
 
@@ -184,13 +216,13 @@ public struct DashboardView: View {
                         showingNotifPanel = true
                     }) {
                         ZStack(alignment: .topTrailing) {
-                            Image(systemName: "bell")
-                                .font(.system(size: 17, weight: .medium))
-                                .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                            Image(systemName: "bell.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(repo.isDarkMode ? Color(hex: "#F1F5F9") : Color(hex: "#1E293B"))
                                 .frame(width: 40, height: 40)
-                                .background(AppTheme.card(isDark: repo.isDarkMode))
+                                .background(repo.isDarkMode ? Color(hex: "#292524") : Color.white)
                                 .cornerRadius(12)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#E2DDD5"), lineWidth: 1))
                                 .shadow(color: repo.isDarkMode ? Color.black.opacity(0.3) : Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
 
                             if !repo.notifications.isEmpty {
@@ -210,12 +242,12 @@ public struct DashboardView: View {
                         }
                     }) {
                         Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(repo.isDarkMode ? Color(hex: "#F1F5F9") : Color(hex: "#1E293B"))
                             .frame(width: 40, height: 40)
-                            .background(AppTheme.card(isDark: repo.isDarkMode))
+                            .background(repo.isDarkMode ? Color(hex: "#292524") : Color.white)
                             .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#E2DDD5"), lineWidth: 1))
                             .shadow(color: repo.isDarkMode ? Color.black.opacity(0.3) : Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                     }
                 }
@@ -239,7 +271,7 @@ public struct DashboardView: View {
                 .font(.system(size: 16))
                 .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
 
-            TextField("Proje veya parça ara...", text: $repo.searchQuery)
+            TextField("Proje veya görev ara...", text: $repo.searchQuery)
                 .font(.system(size: 14))
                 .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
 
@@ -253,9 +285,9 @@ public struct DashboardView: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 46)
-        .background(AppTheme.card(isDark: repo.isDarkMode))
+        .background(repo.isDarkMode ? Color(hex: "#1D1E22") : Color(hex: "#F3F1EE"))
         .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(repo.isDarkMode ? Color(hex: "#2E3036") : Color(hex: "#DCD8D0"), lineWidth: 1))
         .shadow(color: repo.isDarkMode ? Color.black.opacity(0.2) : Color.black.opacity(0.03), radius: 4, x: 0, y: 1)
     }
 
@@ -451,7 +483,30 @@ public struct DashboardView: View {
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
     }
 
-    // MARK: - FAB Menu Button
+    // MARK: - Section Header Row (1:1 with SectionHeaderRow in DashboardScreen.kt)
+    private func sectionHeader(title: String, count: Int, icon: String?) -> some View {
+        HStack {
+            HStack(spacing: 6) {
+                if let icon = icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(repo.isDarkMode ? Color(hex: "#D6D3D1") : Color(hex: "#57534E"))
+                }
+                Text(title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(repo.isDarkMode ? Color(hex: "#D6D3D1") : Color(hex: "#57534E"))
+            }
+            Spacer()
+            Text("\(count)")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+    }
+
+    // MARK: - FAB Menu Button (1:1 Android White Circle FAB)
     private var fabMenuButton: some View {
         Menu {
             Button(action: {
@@ -470,19 +525,17 @@ public struct DashboardView: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [AppTheme.primaryStart, AppTheme.primaryEnd],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                    .fill(repo.isDarkMode ? Color(hex: "#292524") : Color.white)
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        Circle()
+                            .stroke(repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#E2DDD5"), lineWidth: 1)
                     )
-                    .frame(width: 58, height: 58)
-                    .shadow(color: AppTheme.primary.opacity(0.4), radius: 8, x: 0, y: 4)
+                    .shadow(color: Color.black.opacity(repo.isDarkMode ? 0.35 : 0.12), radius: 6, x: 0, y: 3)
 
                 Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(.white)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B"))
             }
         }
         .padding(.trailing, 20)
@@ -521,6 +574,21 @@ public struct ProjectCardView: View {
         let isCompleted = (project.progress == 100) && (totalTasks == 0 || completedTasks == totalTasks)
         let dateSummary = formatDateSummary(startDate: project.startDate, deadline: project.deadline, createdAt: project.createdAt)
 
+        // Custom Colors Resolution (1:1 with ProjectCard.kt)
+        let customBg = parseHexColor(project.customColors?.cardBg)
+        let customBorder = parseHexColor(project.customColors?.borderColor ?? project.customColors?.border)
+        let customText = parseHexColor(project.customColors?.textColor)
+        let customProgress = parseHexColor(project.customColors?.progressBar)
+
+        let isCardDark = customBg != nil ? true : isDark
+        let cardBgColor = customBg ?? (isCompleted ? (isDark ? Color(hex: "#14241C") : Color(hex: "#F3FAF5")) : AppTheme.card(isDark: isDark))
+        let cardBorderColor = customBorder ?? (isCompleted ? Color(hex: "#10B981").opacity(0.4) : AppTheme.borderSubtle(isDark: isDark))
+        let cardBorderWidth: CGFloat = customBorder != nil ? 1.5 : 1.0
+
+        let titleColor = customText ?? AppTheme.textHeading(isDark: isDark)
+        let bodyColor = customText?.opacity(0.85) ?? AppTheme.textBody(isDark: isDark)
+        let mutedColor = customText?.opacity(0.65) ?? AppTheme.textMuted(isDark: isDark)
+
         ZStack {
             // Swipe Actions Background (Arşiv / Sil)
             HStack {
@@ -557,32 +625,30 @@ public struct ProjectCardView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // 1. Üst Satır: Kategori İkonu + Başlık + Öncelik + Tutamaç + Pin
                 HStack(alignment: .center, spacing: 10) {
-                    CategoryVectorIconView(categoryId: project.category, isDarkMode: isDark)
+                    CategoryVectorIconView(categoryId: project.category, isDarkMode: isCardDark)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(project.title.isEmpty ? "İsimsiz Proje" : project.title)
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(AppTheme.textHeading(isDark: isDark))
+                            .foregroundColor(titleColor)
                             .lineLimit(1)
+                            .layoutPriority(1)
 
                         if project.members.count >= 2 {
                             Text("\(project.members.count) Üye")
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(AppTheme.textMuted(isDark: isDark))
+                                .foregroundColor(mutedColor)
                         }
                     }
 
                     Spacer()
 
                     // Hücresel Veri Öncelik Çubukları (4 bars)
-                    PrioritySignalBarsView(priority: project.priority, isDarkMode: isDark)
+                    PrioritySignalBarsView(priority: project.priority, isDarkMode: isCardDark)
                         .padding(.trailing, 4)
 
                     // 6'lı Tutamaç (⠿)
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(AppTheme.textMuted(isDark: isDark).opacity(0.4))
-                        .rotationEffect(.degrees(90))
+                    SixDotDragHandleView(tint: mutedColor.opacity(0.55))
 
                     // Sabitleme İkonu (PushPin)
                     Button(action: {
@@ -591,7 +657,7 @@ public struct ProjectCardView: View {
                     }) {
                         Image(systemName: project.pinned ? "pin.fill" : "pin")
                             .font(.system(size: 15))
-                            .foregroundColor(project.pinned ? Color(hex: "#F59E0B") : AppTheme.textMuted(isDark: isDark).opacity(0.5))
+                            .foregroundColor(project.pinned ? (customText ?? Color(hex: "#F59E0B")) : mutedColor.opacity(0.5))
                             .rotationEffect(.degrees(project.pinned ? 0 : 45))
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -601,7 +667,7 @@ public struct ProjectCardView: View {
                 if !project.description.isEmpty {
                     Text(project.description)
                         .font(.system(size: 12.5))
-                        .foregroundColor(AppTheme.textBody(isDark: isDark))
+                        .foregroundColor(bodyColor)
                         .lineLimit(2)
                         .padding(.top, 8)
                 }
@@ -611,30 +677,36 @@ public struct ProjectCardView: View {
                     HStack {
                         Text("İlerleme")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(AppTheme.textMuted(isDark: isDark))
+                            .foregroundColor(mutedColor)
 
                         Spacer()
 
                         Text("%\(project.progress)")
                             .font(.system(size: 12.5, weight: .bold))
-                            .foregroundColor(AppTheme.textHeading(isDark: isDark))
+                            .foregroundColor(titleColor)
                     }
 
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             Capsule()
-                                .fill(isDark ? Color.black.opacity(0.5) : Color(hex: "#EAEBE6"))
-                                .overlay(Capsule().stroke(isDark ? Color.white.opacity(0.1) : Color.black.opacity(0.08), lineWidth: 0.5))
+                                .fill(isCardDark ? Color.black.opacity(0.5) : Color(hex: "#EAEBE6"))
+                                .overlay(Capsule().stroke(isCardDark ? Color.white.opacity(0.1) : Color.black.opacity(0.08), lineWidth: 0.5))
 
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: isCompleted ? [Color(hex: "#10B981"), Color(hex: "#059669")] : [AppTheme.primaryStart, AppTheme.primaryEnd],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
+                            if let customProgress = customProgress {
+                                Capsule()
+                                    .fill(customProgress)
+                                    .frame(width: max(0, min(geo.size.width * CGFloat(project.progress) / 100.0, geo.size.width)))
+                            } else {
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: isCompleted ? [Color(hex: "#10B981"), Color(hex: "#059669")] : [AppTheme.primaryStart, AppTheme.primaryEnd],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
                                     )
-                                )
-                                .frame(width: max(0, min(geo.size.width * CGFloat(project.progress) / 100.0, geo.size.width)))
+                                    .frame(width: max(0, min(geo.size.width * CGFloat(project.progress) / 100.0, geo.size.width)))
+                            }
                         }
                     }
                     .frame(height: 7)
@@ -643,7 +715,7 @@ public struct ProjectCardView: View {
 
                 // 4. İnce Ayırıcı Çizgi (0.8pt Hairline Divider)
                 Rectangle()
-                    .fill(isDark ? Color(hex: "#262A32") : Color(hex: "#EBEBE5"))
+                    .fill(isCardDark ? Color.white.opacity(0.1) : Color(hex: "#EBEBE5"))
                     .frame(height: 0.8)
                     .padding(.top, 11)
                     .padding(.bottom, 9)
@@ -653,10 +725,10 @@ public struct ProjectCardView: View {
                     HStack(spacing: 5) {
                         Image(systemName: "calendar")
                             .font(.system(size: 11))
-                            .foregroundColor(AppTheme.textMuted(isDark: isDark))
+                            .foregroundColor(mutedColor)
                         Text(dateSummary)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(AppTheme.textMuted(isDark: isDark))
+                            .foregroundColor(mutedColor)
                     }
 
                     Spacer()
@@ -674,23 +746,23 @@ public struct ProjectCardView: View {
                         HStack(spacing: 5) {
                             Image(systemName: "checkmark.circle")
                                 .font(.system(size: 11))
-                                .foregroundColor(AppTheme.textMuted(isDark: isDark))
+                                .foregroundColor(mutedColor)
                             Text("\(completedTasks)/\(totalTasks) görev")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(AppTheme.textMuted(isDark: isDark))
+                                .foregroundColor(mutedColor)
                         }
                     }
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 15)
-            .background(isCompleted ? (isDark ? Color(hex: "#14241C") : Color(hex: "#F3FAF5")) : AppTheme.card(isDark: isDark))
+            .background(cardBgColor)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(isCompleted ? Color(hex: "#10B981").opacity(0.4) : AppTheme.borderSubtle(isDark: isDark), lineWidth: 1)
+                    .stroke(cardBorderColor, lineWidth: cardBorderWidth)
             )
-            .shadow(color: isDark ? Color.black.opacity(0.35) : Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+            .shadow(color: isCardDark ? Color.black.opacity(0.35) : Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
             .offset(x: dragOffset)
             .gesture(
                 DragGesture()
