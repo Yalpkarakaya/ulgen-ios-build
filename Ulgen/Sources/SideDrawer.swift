@@ -95,11 +95,11 @@ public struct SideDrawer: View {
                             sectionHeader("HESAP & BULUT EŞİTLEME")
                             drawerActionItem(icon: "arrow.triangle.2.circlepath", title: "Bulutla Eşitle", subtitle: "Cihazlar arası anlık senkronizasyon") {
                                 Haptics.light()
-                                mqtt.requestInitialSync()
+                                mqtt.subscribeToAccountChannel()
                             }
                             drawerActionItem(icon: "icloud.and.arrow.down", title: "Buluttan İndir", subtitle: "Sunucudaki ana kopyayı cihaza çeker") {
                                 Haptics.light()
-                                mqtt.requestInitialSync()
+                                mqtt.subscribeToAccountChannel()
                             }
 
                             divider
