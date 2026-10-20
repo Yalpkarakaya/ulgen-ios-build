@@ -76,20 +76,28 @@ jobs:
           zip -r -9 Ulgen.ipa Payload/
           ls -lh Ulgen.ipa
 
+      - name: Package Simulator App for Web/Browser Testing
+        run: |
+          cd build_sim/Build/Products/Release-iphonesimulator
+          zip -r -9 ../../../../Ulgen-Simulator.zip Ulgen.app
+          cd ../../../../
+          ls -lh Ulgen-Simulator.zip
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Ulgen-iOS-Package
           path: |
             Ulgen.ipa
+            Ulgen-Simulator.zip
             screenshot_iphone.png
 
       - name: Create or Update Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.2.2 --yes || true
-          gh release create v1.2.2 Ulgen.ipa screenshot_iphone.png \
-            --title "Ülgen iOS v1.2.2 (1:1 Android Parity Production IPA)" \
-            --notes "1:1 Android Kotlin/Compose paritesi: Bronz/amber başlık, 3'lü buton sağ üst grup, tam arama çubuğu, Sıralama Ölçütü ve Filtreler akordeon panelleri, hücresel veri sinyal çubukları, 3 seviyeli aşama ağacı ve tamamlanma üzeri çizili yeşil stiller, 4 sekmeli renk özelleştirme, 5 adımlı AI yol haritası sihirbazı ve HiveMQ MQTT canlı senkronizasyon." \
+          gh release delete v1.3.1 --yes || true
+          gh release create v1.3.1 Ulgen.ipa Ulgen-Simulator.zip screenshot_iphone.png \
+            --title "Ülgen iOS v1.3.1 (1:1 Android Parity + Simulator Build)" \
+            --notes "1:1 Android Kotlin/Compose paritesi: Yakında modalı, dokunsal yaylanma (spring scale) animasyonları, sıfır-emoji standartı, ARM64 IPA ve sanal cihaz web testi için Ulgen-Simulator.zip paketi." \
             --target ${{ github.sha }} || true
