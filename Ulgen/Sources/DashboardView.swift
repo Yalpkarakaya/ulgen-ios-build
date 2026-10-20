@@ -96,7 +96,7 @@ public struct DashboardView: View {
                                                     self.sharingProject = project
                                                 }
                                             }
-                                            .buttonStyle(PlainButtonStyle())
+                                            .buttonStyle(.scaleSpring(scale: 0.985))
                                         }
                                     }
 
@@ -109,7 +109,7 @@ public struct DashboardView: View {
                                                     self.sharingProject = project
                                                 }
                                             }
-                                            .buttonStyle(PlainButtonStyle())
+                                            .buttonStyle(.scaleSpring(scale: 0.985))
                                         }
                                     }
                                 }
@@ -669,7 +669,7 @@ public struct ProjectCardView: View {
                             .foregroundColor(project.pinned ? (customText ?? Color(hex: "#F59E0B")) : mutedColor.opacity(0.5))
                             .rotationEffect(.degrees(project.pinned ? 0 : 45))
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .buttonStyle(.scaleSpring(scale: 0.88))
                 }
 
                 // 2. Proje Açıklaması

@@ -7,6 +7,7 @@ struct UlgenApp: App {
     var body: some Scene {
         WindowGroup {
             DashboardView()
+                .buttonStyle(.scaleSpring(scale: 0.96))
                 .preferredColorScheme(repo.isDarkMode ? .dark : .light)
         }
     }

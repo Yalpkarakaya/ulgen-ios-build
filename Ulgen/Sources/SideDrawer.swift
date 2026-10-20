@@ -96,10 +96,16 @@ public struct SideDrawer: View {
                             drawerActionItem(icon: "arrow.triangle.2.circlepath", title: "Bulutla Eşitle", subtitle: "Cihazlar arası anlık senkronizasyon") {
                                 Haptics.light()
                                 mqtt.subscribeToAccountChannel()
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                    isOpen = false
+                                }
                             }
                             drawerActionItem(icon: "icloud.and.arrow.down", title: "Buluttan İndir", subtitle: "Sunucudaki ana kopyayı cihaza çeker") {
                                 Haptics.light()
                                 mqtt.subscribeToAccountChannel()
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                    isOpen = false
+                                }
                             }
 
                             divider

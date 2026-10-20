@@ -57,6 +57,7 @@ public struct DetailView: View {
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(AppTheme.primary)
                                 }
+                                .buttonStyle(.scaleSpring(scale: 0.94))
                             }
                             .padding(.horizontal, 4)
                             .padding(.top, 4)
@@ -247,6 +248,7 @@ public struct DetailView: View {
                         .foregroundColor(AppTheme.primary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
+                .buttonStyle(.scaleSpring(scale: 0.88))
 
                 // Title
                 VStack(alignment: .leading, spacing: 2) {
@@ -285,6 +287,7 @@ public struct DetailView: View {
                         .background(AppTheme.primary.opacity(0.1))
                         .clipShape(Circle())
                 }
+                .buttonStyle(.scaleSpring(scale: 0.88))
 
                 // Delete Topic Button
                 Button(action: {
@@ -294,6 +297,7 @@ public struct DetailView: View {
                         .font(.system(size: 12))
                         .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
                 }
+                .buttonStyle(.scaleSpring(scale: 0.88))
             }
             .padding(14)
 
@@ -352,6 +356,7 @@ public struct DetailView: View {
                     .background(AppTheme.primary.opacity(0.12))
                     .cornerRadius(6)
                 }
+                .buttonStyle(.scaleSpring(scale: 0.92))
 
                 // Delete SubTopic
                 Button(action: {
@@ -361,6 +366,7 @@ public struct DetailView: View {
                         .font(.system(size: 11))
                         .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
                 }
+                .buttonStyle(.scaleSpring(scale: 0.88))
             }
 
             // Items List (Level 3)
@@ -478,6 +484,7 @@ public struct DetailView: View {
                 .background(newNoteText.isEmpty ? Color.gray.opacity(0.4) : AppTheme.primary)
                 .cornerRadius(8)
                 .disabled(newNoteText.isEmpty)
+                .buttonStyle(.scaleSpring(scale: 0.94))
             }
 
             // Notes List
@@ -496,6 +503,7 @@ public struct DetailView: View {
                             .font(.system(size: 11))
                             .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
                     }
+                    .buttonStyle(.scaleSpring(scale: 0.88))
                 }
                 .padding(10)
                 .background(repo.isDarkMode ? Color(hex: "#1E1B18") : Color(hex: "#FAF8F5"))
@@ -531,6 +539,7 @@ public struct DetailView: View {
                 .cornerRadius(14)
                 .shadow(color: AppTheme.primary.opacity(0.35), radius: 6, x: 0, y: 3)
             }
+            .buttonStyle(.scaleSpring(scale: 0.96))
 
             Button(action: {
                 Haptics.light()
@@ -549,6 +558,7 @@ public struct DetailView: View {
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
                 .shadow(color: repo.isDarkMode ? Color.black.opacity(0.3) : Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
             }
+            .buttonStyle(.scaleSpring(scale: 0.96))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

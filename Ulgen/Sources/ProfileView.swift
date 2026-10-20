@@ -102,6 +102,7 @@ public struct ProfileView: View {
                                     .background(AppTheme.primary)
                                     .cornerRadius(10)
                             }
+                            .buttonStyle(.scaleSpring(scale: 0.96))
                         }
                         .padding(16)
                         .neumorphicCard(isDark: repo.isDarkMode)
@@ -161,6 +162,7 @@ public struct ProfileView: View {
                                     .background(AppTheme.primary)
                                     .cornerRadius(8)
                             }
+                            .buttonStyle(.scaleSpring(scale: 0.96))
                         }
                         .padding(16)
                         .neumorphicCard(isDark: repo.isDarkMode)
@@ -174,6 +176,7 @@ public struct ProfileView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Kapat") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
             .onAppear {

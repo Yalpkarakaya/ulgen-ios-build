@@ -40,6 +40,7 @@ public struct AddTopicSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("İptal") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Ekle") {
@@ -48,6 +49,7 @@ public struct AddTopicSheet: View {
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .foregroundColor(AppTheme.primary)
+                    .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
         }
@@ -84,6 +86,7 @@ public struct AddSubTopicSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("İptal") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Ekle") {
@@ -92,6 +95,7 @@ public struct AddSubTopicSheet: View {
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .foregroundColor(AppTheme.primary)
+                    .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
         }
@@ -143,6 +147,7 @@ public struct AddItemSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("İptal") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Kaydet") {
@@ -151,6 +156,7 @@ public struct AddItemSheet: View {
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .foregroundColor(AppTheme.primary)
+                    .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
         }
@@ -187,6 +193,7 @@ public struct AddNoteSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("İptal") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Kaydet") {
@@ -195,6 +202,7 @@ public struct AddNoteSheet: View {
                     }
                     .disabled(noteContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .foregroundColor(AppTheme.primary)
+                    .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
         }

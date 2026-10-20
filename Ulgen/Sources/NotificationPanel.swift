@@ -61,6 +61,7 @@ public struct NotificationPanel: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Kapat") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Temizle") {
@@ -68,6 +69,7 @@ public struct NotificationPanel: View {
                         repo.saveLocalData()
                     }
                     .foregroundColor(AppTheme.primary)
+                    .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
         }

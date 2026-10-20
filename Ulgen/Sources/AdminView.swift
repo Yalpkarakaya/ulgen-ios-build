@@ -47,6 +47,7 @@ public struct AdminView: View {
                                 .background(AppTheme.primary.opacity(0.12))
                                 .cornerRadius(8)
                             }
+                            .buttonStyle(.scaleSpring(scale: 0.96))
 
                             Button(action: {
                                 repo.deletedProjectIds.removeAll()
@@ -64,6 +65,7 @@ public struct AdminView: View {
                                 .background(Color(hex: "#EF4444").opacity(0.12))
                                 .cornerRadius(8)
                             }
+                            .buttonStyle(.scaleSpring(scale: 0.96))
                         }
                         .padding(16)
                         .neumorphicCard(isDark: repo.isDarkMode)
@@ -77,6 +79,7 @@ public struct AdminView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Kapat") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
         }

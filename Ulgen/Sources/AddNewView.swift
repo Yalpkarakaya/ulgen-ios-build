@@ -112,6 +112,7 @@ public struct AddNewView: View {
                                             .cornerRadius(10)
                                             .overlay(RoundedRectangle(cornerRadius: 10).stroke(isSel ? AppTheme.primary : AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
                                     }
+                                    .buttonStyle(.scaleSpring(scale: 0.94))
                                 }
                             }
                         }
@@ -141,6 +142,7 @@ public struct AddNewView: View {
                                         .cornerRadius(10)
                                         .overlay(RoundedRectangle(cornerRadius: 10).stroke(isSel ? AppTheme.primary : AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
                                     }
+                                    .buttonStyle(.scaleSpring(scale: 0.94))
                                 }
                             }
                         }
@@ -188,6 +190,7 @@ public struct AddNewView: View {
                             .background(AppTheme.primary.opacity(0.1))
                             .cornerRadius(12)
                         }
+                        .buttonStyle(.scaleSpring(scale: 0.97))
 
                         if showAiWizard {
                             aiRoadmapWizardSection
@@ -208,6 +211,7 @@ public struct AddNewView: View {
                                 .cornerRadius(14)
                                 .shadow(color: AppTheme.primary.opacity(0.3), radius: 6, x: 0, y: 3)
                         }
+                        .buttonStyle(.scaleSpring(scale: 0.96))
                         .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .padding(.top, 10)
                         .padding(.bottom, 32)
@@ -221,6 +225,7 @@ public struct AddNewView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("İptal") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
         }
@@ -290,6 +295,7 @@ public struct AddNewView: View {
                             .frame(width: 26, height: 26)
                             .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1))
                     }
+                    .buttonStyle(.scaleSpring(scale: 0.88))
                 }
             }
             .padding(.top, 4)
@@ -333,6 +339,7 @@ public struct AddNewView: View {
                 .background(AppTheme.primary)
                 .cornerRadius(10)
             }
+            .buttonStyle(.scaleSpring(scale: 0.96))
             .disabled(isGeneratingAiRoadmap)
         }
         .padding(14)

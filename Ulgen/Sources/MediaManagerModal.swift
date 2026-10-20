@@ -67,12 +67,14 @@ public struct MediaManagerModal: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Kapat") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: { showingAddLink = true }) {
                         Image(systemName: "plus")
                     }
                     .foregroundColor(AppTheme.primary)
+                    .buttonStyle(.scaleSpring(scale: 0.88))
                 }
             }
             .sheet(isPresented: $showingAddLink) {
@@ -103,6 +105,7 @@ public struct MediaManagerModal: View {
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("İptal") { showingAddLink = false }
+                                .buttonStyle(.scaleSpring(scale: 0.92))
                         }
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Ekle") {
@@ -118,6 +121,7 @@ public struct MediaManagerModal: View {
                                 showingAddLink = false
                             }
                             .disabled(linkTitle.isEmpty)
+                            .buttonStyle(.scaleSpring(scale: 0.92))
                         }
                     }
                 }

@@ -44,12 +44,14 @@ public struct ExportShareView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Kapat") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: triggerShare) {
                         Image(systemName: "square.and.arrow.up")
                     }
                     .foregroundColor(AppTheme.primary)
+                    .buttonStyle(.scaleSpring(scale: 0.88))
                 }
             }
             .sheet(isPresented: $showShareSheet) {

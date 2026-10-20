@@ -78,6 +78,7 @@ public struct MChatView: View {
                                 .font(.system(size: 32))
                                 .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : AppTheme.primary)
                         }
+                        .buttonStyle(.scaleSpring(scale: 0.90))
                         .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGenerating)
                     }
                     .padding(12)
@@ -90,6 +91,7 @@ public struct MChatView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Kapat") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
         }
@@ -177,6 +179,7 @@ public struct MChatView: View {
                 .background(AppTheme.primary.opacity(0.12))
                 .cornerRadius(16)
         }
+        .buttonStyle(.scaleSpring(scale: 0.94))
     }
 
     private func sendMessage() {

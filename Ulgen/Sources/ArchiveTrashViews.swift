@@ -34,6 +34,7 @@ public struct ArchiveView: View {
                                         }
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(AppTheme.primary)
+                                        .buttonStyle(.scaleSpring(scale: 0.92))
                                     }
                                     Text(project.description)
                                         .font(.system(size: 13))
@@ -54,6 +55,7 @@ public struct ArchiveView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Kapat") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
             }
         }
@@ -90,11 +92,12 @@ public struct TrashView: View {
                                             .font(.system(size: 16, weight: .bold))
                                             .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
                                         Spacer()
-                                        Button("Kurtar") {
+                                         Button("Kurtar") {
                                             repo.restoreProject(id: project.id)
                                         }
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(AppTheme.primary)
+                                        .buttonStyle(.scaleSpring(scale: 0.92))
 
                                         Button("Yok Et") {
                                             repo.permanentDeleteProject(id: project.id)
@@ -102,6 +105,7 @@ public struct TrashView: View {
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(Color(hex: "#EF4444"))
                                         .padding(.leading, 8)
+                                        .buttonStyle(.scaleSpring(scale: 0.92))
                                     }
                                     Text(project.description)
                                         .font(.system(size: 13))
@@ -122,6 +126,7 @@ public struct TrashView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Kapat") { dismiss() }
                         .foregroundColor(AppTheme.primary)
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                 }
                 ToolbarItem(placement: .destructiveAction) {
                     if !repo.trashedProjects.isEmpty {
@@ -129,6 +134,7 @@ public struct TrashView: View {
                             showConfirmEmpty = true
                         }
                         .foregroundColor(Color(hex: "#EF4444"))
+                        .buttonStyle(.scaleSpring(scale: 0.92))
                     }
                 }
             }
