@@ -322,7 +322,7 @@ public class ProjectRepository: ObservableObject {
 
     public func addMedia(projectId: String, name: String, mimeType: String, base64: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        let media = MediaItem(name: name, mimeType: mimeType, base64Data: base64)
+        let media = MediaItem(uri: "", mimeType: mimeType, name: name, base64Data: base64)
         projects[pIdx].media.append(media)
         projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         saveLocalData()

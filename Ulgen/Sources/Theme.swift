@@ -120,3 +120,21 @@ public extension View {
         self.modifier(NeumorphicCardModifier(isDark: isDark, cornerRadius: cornerRadius))
     }
 }
+
+// MARK: - Stepper Button Style
+public struct QuantityStepButtonStyle: ButtonStyle {
+    public var isDark: Bool
+    public init(isDark: Bool) {
+        self.isDark = isDark
+    }
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(AppTheme.textHeading(isDark: isDark))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.04))
+            .cornerRadius(4)
+            .opacity(configuration.isPressed ? 0.7 : 1.0)
+    }
+}
