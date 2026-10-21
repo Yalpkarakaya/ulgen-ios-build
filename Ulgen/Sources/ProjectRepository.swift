@@ -24,6 +24,7 @@ public class ProjectRepository: ObservableObject {
     private let apiKeysFileURL: URL
     private let profileFileURL: URL
     private var debouncedDriveSaveWorkItem: DispatchWorkItem?
+    private var debouncedAutoBackupWorkItem: DispatchWorkItem?
 
     public init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -308,13 +309,34 @@ public class ProjectRepository: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + delaySeconds, execute: workItem)
     }
 
+    public func scheduleDebouncedAutoBackup(projectId: String? = nil, delaySeconds: Double = 5.0) {
+        guard let pId = projectId else { return }
+        debouncedAutoBackupWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self,
+                  let proj = self.projects.first(where: { $0.id == pId && !$0.deleted }) else { return }
+            _ = ProjectBackupManager.shared.createProjectBackup(
+                project: proj,
+                reason: "Otomatik Değişiklik Yedeği",
+                pool: "auto"
+            )
+        }
+        debouncedAutoBackupWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delaySeconds, execute: workItem)
+    }
+
     public func saveLocalData(modifiedProjectId: String? = nil, isDeletion: Bool = false) {
         saveLocalDataDirect()
 
         // 1. Debounced Google Drive Visible Hierarchy & Master Sync
         scheduleDebouncedDriveSave(modifiedProjectId: modifiedProjectId)
 
-        // 2. Real-Time Cross-Device Sync Broadcast (HiveMQ MQTT & Cloudflare Worker KV)
+        // 2. Debounced Automated Snapshot Backup (1:1 with Android ProjectBackupManager)
+        if !isDeletion, let modId = modifiedProjectId {
+            scheduleDebouncedAutoBackup(projectId: modId)
+        }
+
+        // 3. Real-Time Cross-Device Sync Broadcast (HiveMQ MQTT & Cloudflare Worker KV)
         if isDeletion, let delId = modifiedProjectId {
             MqttSyncEngine.shared.broadcastProjectDelete(id: delId)
             Task {

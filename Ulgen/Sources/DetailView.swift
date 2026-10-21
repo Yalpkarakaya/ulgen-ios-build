@@ -15,6 +15,7 @@ public struct DetailView: View {
     @State private var showingMChat = false
     @State private var showingShare = false
     @State private var showingMediaManager = false
+    @State private var showingBackupModal = false
     @State private var activeMediaTargetTitle: String = "Proje Geneli"
     @State private var activeMediaTopicId: String? = nil
     @State private var activeMediaSubTopicId: String? = nil
@@ -127,6 +128,18 @@ public struct DetailView: View {
                             showingMChat = false
                         })
                     }
+
+                    if showingBackupModal {
+                        BackupModal(
+                            project: p,
+                            onDismiss: {
+                                showingBackupModal = false
+                            },
+                            onProjectRestored: { restored in
+                                repo.updateProject(restored)
+                            }
+                        )
+                    }
                 }
                 .navigationTitle(p.title)
                 .navigationBarTitleDisplayMode(.inline)
@@ -143,6 +156,9 @@ public struct DetailView: View {
                             }
                             Button(action: { showingMChat = true }) {
                                 Label("AI Medya Sohbetleri", systemImage: "bubble.left.and.bubble.right")
+                            }
+                            Button(action: { showingBackupModal = true }) {
+                                Label("Yedekleme & Geçmiş", systemImage: "clock.arrow.circlepath")
                             }
                             Button(action: { showingShare = true }) {
                                 Label("Paylaş", systemImage: "square.and.arrow.up")

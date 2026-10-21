@@ -514,3 +514,137 @@ public struct ApiKeysConfig: Codable, Hashable {
         self.preferredModel = preferredModel
     }
 }
+
+// MARK: - Backup Models (1:1 with Android BackupModels.kt)
+public struct BackupStats: Codable, Hashable {
+    public var topics: Int
+    public var completedTopics: Int
+    public var subs: Int
+    public var completedSubs: Int
+    public var items: Int
+    public var completedItems: Int
+    public var notes: Int
+    public var links: Int
+    public var media: Int
+    public var cloudMedia: Int
+    public var localMedia: Int
+    public var aiChats: Int
+    public var progress: Int
+    public var total: Int
+
+    public init(
+        topics: Int = 0,
+        completedTopics: Int = 0,
+        subs: Int = 0,
+        completedSubs: Int = 0,
+        items: Int = 0,
+        completedItems: Int = 0,
+        notes: Int = 0,
+        links: Int = 0,
+        media: Int = 0,
+        cloudMedia: Int = 0,
+        localMedia: Int = 0,
+        aiChats: Int = 0,
+        progress: Int = 0,
+        total: Int = 0
+    ) {
+        self.topics = topics
+        self.completedTopics = completedTopics
+        self.subs = subs
+        self.completedSubs = completedSubs
+        self.items = items
+        self.completedItems = completedItems
+        self.notes = notes
+        self.links = links
+        self.media = media
+        self.cloudMedia = cloudMedia
+        self.localMedia = localMedia
+        self.aiChats = aiChats
+        self.progress = progress
+        self.total = total
+    }
+}
+
+public struct ProjectBackup: Codable, Identifiable, Hashable {
+    public var id: String
+    public var createdAt: String
+    public var reason: String
+    public var title: String
+    public var type: String // "auto" or "manual"
+    public var stats: BackupStats
+    public var data: Project
+    public var pool: String
+
+    public init(
+        id: String = "bk_\(Int64(Date().timeIntervalSince1970 * 1000))_\(UUID().uuidString.prefix(6))",
+        createdAt: String = ISO8601DateFormatter().string(from: Date()),
+        reason: String = "Otomatik Yedekleme",
+        title: String = "",
+        type: String = "auto",
+        stats: BackupStats = BackupStats(),
+        data: Project,
+        pool: String = "auto"
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.reason = reason
+        self.title = title
+        self.type = type
+        self.stats = stats
+        self.data = data
+        self.pool = pool
+    }
+}
+
+public struct ExportedProjectBackup: Codable {
+    public var version: Int
+    public var exportedAt: String
+    public var appName: String
+    public var project: Project
+    public var stats: BackupStats?
+    public var backupHistory: [ProjectBackup]
+
+    public init(
+        version: Int = 1,
+        exportedAt: String = ISO8601DateFormatter().string(from: Date()),
+        appName: String = "Ülgen Takip",
+        project: Project,
+        stats: BackupStats? = nil,
+        backupHistory: [ProjectBackup] = []
+    ) {
+        self.version = version
+        self.exportedAt = exportedAt
+        self.appName = appName
+        self.project = project
+        self.stats = stats
+        self.backupHistory = backupHistory
+    }
+}
+
+public struct FullSystemBackupEnvelope: Codable {
+    public var version: Int
+    public var exportedAt: String
+    public var appName: String
+    public var projects: [Project]
+    public var projectBackups: [String: [ProjectBackup]]
+    public var mediaBackupMode: String
+    public var isDarkMode: Bool
+
+    public init(
+        version: Int = 1,
+        exportedAt: String = ISO8601DateFormatter().string(from: Date()),
+        appName: String = "Ülgen Takip Tam Sistem Yedeği",
+        projects: [Project] = [],
+        projectBackups: [String: [ProjectBackup]] = [:],
+        mediaBackupMode: String = "cloud_permanent",
+        isDarkMode: Bool = false
+    ) {
+        self.version = version
+        self.exportedAt = exportedAt
+        self.appName = appName
+        self.projects = projects
+        self.projectBackups = projectBackups
+        self.mediaBackupMode = mediaBackupMode
+        self.isDarkMode = isDarkMode
+    }
+}
