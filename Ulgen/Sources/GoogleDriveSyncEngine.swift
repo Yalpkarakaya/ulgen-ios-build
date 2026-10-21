@@ -120,7 +120,7 @@ public class GoogleDriveSyncEngine: ObservableObject {
             ProjectRepository.shared.userProfile.email = email
             ProjectRepository.shared.userProfile.displayName = name
             ProjectRepository.shared.saveLocalDataDirect()
-            MqttSyncEngine.shared.start(email: email)
+            MqttSyncEngine.shared.userEmail = email
         }
 
         return (email, name)
