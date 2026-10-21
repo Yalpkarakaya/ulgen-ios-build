@@ -102,18 +102,21 @@ jobs:
           git clone --depth 1 https://github.com/novnc/websockify.git /tmp/websockify
           git clone --recurse-submodules https://github.com/peetinc/noVNC-ARD.git /tmp/novnc-ard
           
-          # Launch websockify binding explicitly to 127.0.0.1:6080 with 30s heartbeat
-          nohup /tmp/websockify/run --web /tmp/novnc-ard 127.0.0.1:6080 127.0.0.1:5900 --heartbeat 30 > /tmp/novnc.log 2>&1 &
+          # Launch websockify dedicated solely to WebSockets on port 6081
+          nohup /tmp/websockify/run 127.0.0.1:6081 127.0.0.1:5900 --heartbeat 30 > /tmp/websockify.log 2>&1 &
+          
+          # Launch ultra-fast Node.js static server + WS proxy on port 6080
+          nohup node tools/web-server.js /tmp/novnc-ard 6080 6081 > /tmp/webserver.log 2>&1 &
           
           # Verify local HTTP response
           for i in {1..15}; do
             sleep 1
             if curl -s -I http://127.0.0.1:6080/ard.html | grep -q "200 OK"; then
-              echo "noVNC-ARD server verified and responding with 200 OK!"
+              echo "noVNC-ARD Node server verified and responding with 200 OK!"
               break
             fi
           done
-          cat /tmp/novnc.log || true
+          cat /tmp/webserver.log || true
 
       - name: Install Cloudflare Tunnel
         run: |
