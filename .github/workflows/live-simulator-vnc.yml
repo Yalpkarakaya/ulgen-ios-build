@@ -60,12 +60,16 @@ jobs:
 
       - name: Enable macOS Native Screen Sharing (VNC Server)
         run: |
-          echo "Setting macOS runner user password and activating ARD VNC Server..."
-          CURRENT_USER=$(id -un)
-          echo "Target user: $CURRENT_USER"
-          echo -e "ulgen123\nulgen123" | sudo passwd $CURRENT_USER || true
-          echo -e "ulgen123\nulgen123" | sudo passwd runner || true
-          sudo dscl . -passwd /Users/runner "" "ulgen123" || true
+          echo "Creating dedicated ARD user 'ulgen' with password 'ulgen123'..."
+          sudo dscl . -create /Users/ulgen || true
+          sudo dscl . -create /Users/ulgen UserShell /bin/bash || true
+          sudo dscl . -create /Users/ulgen RealName "Ulgen" || true
+          sudo dscl . -create /Users/ulgen UniqueID "1002" || true
+          sudo dscl . -create /Users/ulgen PrimaryGroupID 20 || true
+          sudo dscl . -create /Users/ulgen NFSHomeDirectory /Users/ulgen || true
+          sudo mkdir -p /Users/ulgen && sudo chown -R 1002:20 /Users/ulgen || true
+          sudo dscl . -passwd /Users/ulgen "ulgen123"
+          sudo dscl . -append /Groups/admin GroupMembership ulgen || true
           
           # Enable screensharing launch daemon (Required for macOS 14 Sonoma)
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist || true
@@ -78,6 +82,9 @@ jobs:
             -clientopts -setvnclegacy -vnclegacy yes \
             -clientopts -setvncpw -vncpw "ulgen123" \
             -restart -agent -console
+
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -users ulgen -access -on -privs -all || true
 
           # Verify port 5900 is listening
           echo "Waiting for port 5900 to listen..."
@@ -154,8 +161,8 @@ jobs:
             sleep 1
           done
 
-          CLOUDFLARE_LINK="${TUNNEL_URL}/ard.html?autoconnect=true&username=runner&password=ulgen123&ardSessionType=share&resize=scale&reconnect=true"
-          LOCALTUNNEL_LINK="${LOCAL_URL}/ard.html?autoconnect=true&username=runner&password=ulgen123&ardSessionType=share&resize=scale&reconnect=true"
+          CLOUDFLARE_LINK="${TUNNEL_URL}/ard.html?autoconnect=true&username=ulgen&password=ulgen123&ardSessionType=share&resize=scale&reconnect=true"
+          LOCALTUNNEL_LINK="${LOCAL_URL}/ard.html?autoconnect=true&username=ulgen&password=ulgen123&ardSessionType=share&resize=scale&reconnect=true"
           
           echo "LIVE_URL=$CLOUDFLARE_LINK" >> $GITHUB_ENV
 
@@ -171,7 +178,7 @@ jobs:
             echo "2. **[Alternatif Doğrudan Bağlantı (Localtunnel)]($LOCALTUNNEL_LINK)**" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Kullanıcı:** \`runner\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Kullanıcı:** \`ulgen\`" >> $GITHUB_STEP_SUMMARY
           echo "- **VNC Şifresi:** \`ulgen123\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Aktif Süre:** 60 dakika" >> $GITHUB_STEP_SUMMARY
 
