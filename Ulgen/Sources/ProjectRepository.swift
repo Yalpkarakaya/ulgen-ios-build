@@ -23,6 +23,7 @@ public class ProjectRepository: ObservableObject {
     private let notifFileURL: URL
     private let apiKeysFileURL: URL
     private let profileFileURL: URL
+    private var debouncedDriveSaveWorkItem: DispatchWorkItem?
 
     public init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -283,10 +284,37 @@ public class ProjectRepository: ObservableObject {
         }
     }
 
+    public func scheduleDebouncedDriveSave(modifiedProjectId: String? = nil, delaySeconds: Double = 2.5) {
+        guard GoogleDriveSyncEngine.shared.isAuthorized else { return }
+        debouncedDriveSaveWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            Task {
+                guard GoogleDriveSyncEngine.shared.isAuthorized else { return }
+
+                // 1. Sync active modified project's visible tree folder (Ülgen Takip / <Title> / <Title> - Proje Yedeği.json)
+                if let modId = modifiedProjectId, let proj = self.projects.first(where: { $0.id == modId && !$0.deleted }) {
+                    _ = try? await GoogleDriveSyncEngine.shared.syncSingleProjectTreeToDrive(project: proj)
+                }
+
+                // 2. Sync master system backup (Ülgen Takip / Ülgen Takip - Tüm Sistem Yedeği.json)
+                _ = try? await GoogleDriveSyncEngine.shared.pushMasterBackup(
+                    projects: self.projects,
+                    deleted: self.deletedProjectIds
+                )
+            }
+        }
+        debouncedDriveSaveWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delaySeconds, execute: workItem)
+    }
+
     public func saveLocalData(modifiedProjectId: String? = nil, isDeletion: Bool = false) {
         saveLocalDataDirect()
 
-        // Real-Time Cross-Device Sync Broadcast (HiveMQ MQTT & Cloudflare Worker KV)
+        // 1. Debounced Google Drive Visible Hierarchy & Master Sync
+        scheduleDebouncedDriveSave(modifiedProjectId: modifiedProjectId)
+
+        // 2. Real-Time Cross-Device Sync Broadcast (HiveMQ MQTT & Cloudflare Worker KV)
         if isDeletion, let delId = modifiedProjectId {
             MqttSyncEngine.shared.broadcastProjectDelete(id: delId)
             Task {
@@ -307,9 +335,9 @@ public class ProjectRepository: ObservableObject {
         }
     }
 
-    // MARK: - Incoming Remote Sync Handlers
+    // MARK: - Incoming Remote Sync Handlers (1:1 Android MergeEngine Convergence)
     public func mergeIncomingProject(_ incoming: Project) {
-        // Tombstone Check
+        // Tombstone Check: 10s grace period threshold
         if let tombstone = deletedProjectIds.first(where: { $0.id == incoming.id }) {
             if incoming.lastUpdated <= tombstone.deletedAt + 10_000 {
                 return
@@ -317,16 +345,16 @@ public class ProjectRepository: ObservableObject {
         }
 
         if let idx = projects.firstIndex(where: { $0.id == incoming.id }) {
-            // Last-Write-Wins (LWW)
-            if incoming.lastUpdated >= projects[idx].lastUpdated {
-                projects[idx] = incoming
-                recalculateProgress(projectId: incoming.id)
-                saveLocalDataDirect()
-            }
+            let existing = projects[idx]
+            let merged = MergeEngine.mergeSingleProject(local: existing, remote: incoming)
+            projects[idx] = merged
+            recalculateProgress(projectId: merged.id)
+            saveLocalDataDirect() // Direct save without MQTT re-broadcast (prevents echo/ping-pong loop)
         } else {
-            projects.insert(incoming, at: 0)
-            recalculateProgress(projectId: incoming.id)
-            saveLocalDataDirect()
+            let sanitized = MergeEngine.sanitizeProjectTombstones(incoming)
+            projects.insert(sanitized, at: 0)
+            recalculateProgress(projectId: sanitized.id)
+            saveLocalDataDirect() // Direct save without MQTT re-broadcast
         }
     }
 
@@ -404,6 +432,13 @@ public class ProjectRepository: ObservableObject {
         projects.insert(newP, at: 0)
         recalculateProgress(projectId: newP.id)
         saveLocalData(modifiedProjectId: newP.id)
+
+        // Immediate Drive tree creation for newly created project (Zero-Lag Drive Folder)
+        if GoogleDriveSyncEngine.shared.isAuthorized {
+            Task {
+                _ = try? await GoogleDriveSyncEngine.shared.syncSingleProjectTreeToDrive(project: newP)
+            }
+        }
     }
 
     public func updateProject(_ project: Project) {
@@ -600,14 +635,79 @@ public class ProjectRepository: ObservableObject {
 
     public func attachMedia(projectId: String, media: MediaItem) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
-        projects[pIdx].media.append(media)
+
+        // Remove from deletedIds if re-attaching
+        projects[pIdx].deletedIds.removeAll { $0.id == media.id }
+
+        if let existingIdx = projects[pIdx].media.firstIndex(where: { $0.id == media.id }) {
+            projects[pIdx].media[existingIdx] = media
+        } else {
+            projects[pIdx].media.append(media)
+        }
+
         projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         saveLocalData(modifiedProjectId: projectId)
     }
 
     public func removeMedia(projectId: String, mediaId: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+
+        // 1. Collect target media and its Drive file ID
+        let targetMedia = projects[pIdx].media.first(where: { $0.id == mediaId })
+        let driveFileId = targetMedia?.driveFileId
+
+        // 2. Remove from project media
         projects[pIdx].media.removeAll { $0.id == mediaId }
+
+        // 3. Remove references from topics, subtopics, and items
+        for tIdx in 0..<projects[pIdx].mainTopics.count {
+            projects[pIdx].mainTopics[tIdx].attachedMedia.removeAll { $0 == mediaId }
+            for sIdx in 0..<projects[pIdx].mainTopics[tIdx].subTopics.count {
+                projects[pIdx].mainTopics[tIdx].subTopics[sIdx].attachedMedia.removeAll { $0 == mediaId }
+                projects[pIdx].mainTopics[tIdx].subTopics[sIdx].media.removeAll { $0.id == mediaId }
+                for iIdx in 0..<projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.count {
+                    projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items[iIdx].attachedMedia.removeAll { $0 == mediaId }
+                }
+            }
+        }
+
+        // 4. Add tombstone to project.deletedIds to prevent resurrection across devices
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        projects[pIdx].deletedIds.removeAll { $0.id == mediaId }
+        projects[pIdx].deletedIds.append(DeletedItemRecord(id: mediaId, deletedAt: now))
+        projects[pIdx].lastUpdated = now
+
+        saveLocalData(modifiedProjectId: projectId)
+
+        // 5. Permanent deletion from Google Drive REST v3
+        if let fileId = driveFileId, !fileId.isEmpty {
+            Task {
+                _ = try? await GoogleDriveSyncEngine.shared.deleteDriveFile(fileId: fileId)
+            }
+        }
+    }
+
+    public func toggleMediaAttachmentToTopic(projectId: String, topicId: String, mediaId: String) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == topicId }) else { return }
+        if projects[pIdx].mainTopics[tIdx].attachedMedia.contains(mediaId) {
+            projects[pIdx].mainTopics[tIdx].attachedMedia.removeAll { $0 == mediaId }
+        } else {
+            projects[pIdx].mainTopics[tIdx].attachedMedia.append(mediaId)
+        }
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        saveLocalData(modifiedProjectId: projectId)
+    }
+
+    public func toggleMediaAttachmentToSubTopic(projectId: String, topicId: String, subTopicId: String, mediaId: String) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == topicId }),
+              let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopicId }) else { return }
+        if projects[pIdx].mainTopics[tIdx].subTopics[sIdx].attachedMedia.contains(mediaId) {
+            projects[pIdx].mainTopics[tIdx].subTopics[sIdx].attachedMedia.removeAll { $0 == mediaId }
+        } else {
+            projects[pIdx].mainTopics[tIdx].subTopics[sIdx].attachedMedia.append(mediaId)
+        }
         projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         saveLocalData(modifiedProjectId: projectId)
     }

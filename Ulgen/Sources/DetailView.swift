@@ -15,6 +15,9 @@ public struct DetailView: View {
     @State private var showingMChat = false
     @State private var showingShare = false
     @State private var showingMediaManager = false
+    @State private var activeMediaTargetTitle: String = "Proje Geneli"
+    @State private var activeMediaTopicId: String? = nil
+    @State private var activeMediaSubTopicId: String? = nil
     @State private var showingDeleteConfirm = false
     @State private var newNoteText: String = ""
 
@@ -108,9 +111,15 @@ public struct DetailView: View {
 
                     // Overlay Modals
                     if showingMediaManager {
-                        MediaManagerModal(projectId: p.id, onDismiss: {
-                            showingMediaManager = false
-                        })
+                        MediaManagerModal(
+                            projectId: p.id,
+                            targetTitle: activeMediaTargetTitle,
+                            targetTopicId: activeMediaTopicId,
+                            targetSubTopicId: activeMediaSubTopicId,
+                            onDismiss: {
+                                showingMediaManager = false
+                            }
+                        )
                     }
 
                     if showingMChat {
@@ -124,7 +133,12 @@ public struct DetailView: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Menu {
-                            Button(action: { showingMediaManager = true }) {
+                            Button(action: {
+                                activeMediaTargetTitle = "Proje Geneli"
+                                activeMediaTopicId = nil
+                                activeMediaSubTopicId = nil
+                                showingMediaManager = true
+                            }) {
                                 Label("Medya İliştir", systemImage: "paperclip")
                             }
                             Button(action: { showingMChat = true }) {
@@ -274,11 +288,14 @@ public struct DetailView: View {
                     // Paperclip
                     Button(action: {
                         Haptics.light()
+                        activeMediaTargetTitle = "Ana Konu: \(topic.title)"
+                        activeMediaTopicId = topic.id
+                        activeMediaSubTopicId = nil
                         showingMediaManager = true
                     }) {
                         Image(systemName: "paperclip")
                             .font(.system(size: 14))
-                            .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+                            .foregroundColor(topic.attachedMedia.isEmpty ? (repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C")) : Color(hex: "#A16207"))
                             .frame(width: 24, height: 24)
                     }
 
@@ -297,6 +314,41 @@ public struct DetailView: View {
                         .font(.system(size: 12))
                         .foregroundColor(repo.isDarkMode ? Color(hex: "#6B7280") : Color(hex: "#9CA3AF"))
                         .frame(width: 20, height: 24)
+                }
+            }
+
+            // Attached Media Thumbnails Row
+            if !topic.attachedMedia.isEmpty {
+                let attachedItems = project.media.filter { topic.attachedMedia.contains($0.id) }
+                if !attachedItems.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(attachedItems) { m in
+                                HStack(spacing: 4) {
+                                    if let b64 = m.base64Data, let imgData = Data(base64Encoded: b64), let uiImg = UIImage(data: imgData) {
+                                        Image(uiImage: uiImg)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(width: 22, height: 22)
+                                            .cornerRadius(4)
+                                    } else {
+                                        Image(systemName: "paperclip")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(Color(hex: "#A16207"))
+                                    }
+                                    Text(m.name)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(repo.isDarkMode ? Color(hex: "#2E2A26") : Color(hex: "#F5EFE6"))
+                                .cornerRadius(6)
+                            }
+                        }
+                    }
+                    .padding(.top, 2)
                 }
             }
 
@@ -400,10 +452,16 @@ public struct DetailView: View {
                     )
 
                 // Paperclip
-                Button(action: { showingMediaManager = true }) {
+                Button(action: {
+                    Haptics.light()
+                    activeMediaTargetTitle = "Alt Konu: \(sub.title)"
+                    activeMediaTopicId = topic.id
+                    activeMediaSubTopicId = sub.id
+                    showingMediaManager = true
+                }) {
                     Image(systemName: "paperclip")
                         .font(.system(size: 12))
-                        .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+                        .foregroundColor(sub.attachedMedia.isEmpty ? (repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C")) : Color(hex: "#A16207"))
                 }
 
                 // Pen
@@ -415,6 +473,40 @@ public struct DetailView: View {
                 Image(systemName: "circle.grid.2x2.fill")
                     .font(.system(size: 10))
                     .foregroundColor(repo.isDarkMode ? Color(hex: "#6B7280") : Color(hex: "#9CA3AF"))
+            }
+
+            // SubTopic Attached Media Thumbnails
+            if !sub.attachedMedia.isEmpty {
+                let attachedItems = project.media.filter { sub.attachedMedia.contains($0.id) }
+                if !attachedItems.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 5) {
+                            ForEach(attachedItems) { m in
+                                HStack(spacing: 4) {
+                                    if let b64 = m.base64Data, let imgData = Data(base64Encoded: b64), let uiImg = UIImage(data: imgData) {
+                                        Image(uiImage: uiImg)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(width: 18, height: 18)
+                                            .cornerRadius(3)
+                                    } else {
+                                        Image(systemName: "paperclip")
+                                            .font(.system(size: 9))
+                                            .foregroundColor(Color(hex: "#A16207"))
+                                    }
+                                    Text(m.name)
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(repo.isDarkMode ? Color(hex: "#332F2A") : Color(hex: "#EFECE6"))
+                                .cornerRadius(5)
+                            }
+                        }
+                    }
+                }
             }
 
             // Items List (Clean Task Checkboxes - NO Quantity Steppers!)

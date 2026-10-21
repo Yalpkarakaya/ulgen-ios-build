@@ -311,13 +311,28 @@ public struct MediaItem: Codable, Identifiable, Hashable {
     public var mimeType: String
     public var name: String
     public var base64Data: String?
+    public var driveFileId: String?
+    public var size: Int64
+    public var createdAt: Int64
 
-    public init(id: String = UUID().uuidString, uri: String = "", mimeType: String = "image/jpeg", name: String = "", base64Data: String? = nil) {
+    public init(
+        id: String = UUID().uuidString,
+        uri: String = "",
+        mimeType: String = "image/jpeg",
+        name: String = "",
+        base64Data: String? = nil,
+        driveFileId: String? = nil,
+        size: Int64 = 0,
+        createdAt: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
+    ) {
         self.id = id
         self.uri = uri
         self.mimeType = mimeType
         self.name = name
         self.base64Data = base64Data
+        self.driveFileId = driveFileId
+        self.size = size
+        self.createdAt = createdAt
     }
 }
 
