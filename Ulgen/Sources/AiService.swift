@@ -175,85 +175,85 @@ public class AiService {
         let topic1 = MainTopic(
             title: "1. Temel Gereksinimler & Mimari Analiz",
             description: "\(cleanTitle) kapsamında temel teknik gereksinimlerin ve sistem mimarisinin netleştirilmesi.",
-            order: 0,
             subTopics: [
                 SubTopic(
                     title: "Şartname ve Standartların İncelenmesi",
                     description: "Toleranslar, elektriksel sınırlar ve hedef parametrelerin tespiti.",
                     estimatedHours: 2,
-                    order: 0,
                     items: [
                         Item(title: "Hedef performans kriterlerinin ve toleransların belirlenmesi", order: 0),
                         Item(title: "Kullanılacak bileşen ve araç listesinin (BOM) netleştirilmesi", order: 1)
-                    ]
+                    ],
+                    order: 0
                 ),
                 SubTopic(
                     title: "Sistem Blok Şeması ve Akış",
                     description: "Giriş/çıkış arayüzleri ve sinyal akışının modellenmesi.",
                     estimatedHours: 3,
-                    order: 1,
                     items: [
                         Item(title: "Ana fonksiyon blok diyagramının çizilmesi", order: 0),
                         Item(title: "Güç dağıtım ve haberleşme topolojisinin teyit edilmesi", order: 1)
-                    ]
+                    ],
+                    order: 1
                 )
-            ]
+            ],
+            order: 0
         )
 
         let topic2 = MainTopic(
             title: "2. Çekirdek Geliştirme & Entegrasyon",
             description: "Projenin ana yapı taşlarının ve donanım/yazılım katmanlarının hayata geçirilmesi.",
-            order: 1,
             subTopics: [
                 SubTopic(
                     title: "Çekirdek Modüller ve Donanım/Yazılım Tasarımı",
                     description: "Şematik, PCB yerleşimi veya firmware çekirdek kodları.",
                     estimatedHours: 4,
-                    order: 0,
                     items: [
                         Item(title: "Çekirdek şematik/kod yapısının oluşturulması", order: 0),
                         Item(title: "Simülasyon ve sanal analizlerin tamamlanması", order: 1)
-                    ]
+                    ],
+                    order: 0
                 ),
                 SubTopic(
                     title: "Prototipleme ve Modüler Doğrulama",
                     description: "Modüllerin masaüstü test ortamında adım adım doğrulanması.",
                     estimatedHours: 4,
-                    order: 1,
                     items: [
                         Item(title: "Prototip donanım/yazılımın bir araya getirilmesi", order: 0),
                         Item(title: "Kritik sinyal ve gecikme parametrelerinin ölçülmesi", order: 1)
-                    ]
+                    ],
+                    order: 1
                 )
-            ]
+            ],
+            order: 1
         )
 
         let topic3 = MainTopic(
             title: "3. Doğrulama, Test & Nihai Teslim",
             description: "Nihai fonksiyonel testler, hata ayıklama ve projenin tamamlanması.",
-            order: 2,
             subTopics: [
                 SubTopic(
                     title: "Kapsamlı Sistem Testleri ve İyileştirmeler",
                     description: "Sınır koşullarında çalışma ve dayanıklılık analizleri.",
                     estimatedHours: 3,
-                    order: 0,
                     items: [
                         Item(title: "Farklı çalışma senaryolarında sistem davranışının doğrulanması", order: 0),
                         Item(title: "Gözlemlenen limit ve hataların giderilmesi", order: 1)
-                    ]
+                    ],
+                    order: 0
                 ),
                 SubTopic(
                     title: "Nihai Dokümantasyon ve Kalite Kontrol",
                     description: "Test raporlarının çıkarılması ve teslimat hazırlığı.",
                     estimatedHours: 2,
-                    order: 1,
                     items: [
                         Item(title: "Teknik dokümantasyon ve ölçüm sonuçlarının arşivlenmesi", order: 0),
                         Item(title: "Kalite kontrol kontrol listesinin eksiksiz onaylanması", order: 1)
-                    ]
+                    ],
+                    order: 1
                 )
-            ]
+            ],
+            order: 2
         )
 
         return [topic1, topic2, topic3]
@@ -286,10 +286,39 @@ public class AiService {
                     return Item(title: iTitle, order: iIdx)
                 }
 
-                return SubTopic(title: sTitle, description: sDesc, order: sIdx, items: items)
+                return SubTopic(title: sTitle, description: sDesc, items: items, order: sIdx)
             }
 
-            return MainTopic(title: title, description: desc, order: tIdx, subTopics: subTopics)
+            return MainTopic(title: title, description: desc, subTopics: subTopics, order: tIdx)
+        }
+    }
+
+    private func generateLocalExpertResponse(project: Project, prompt: String) -> String {
+        let pLower = prompt.lowercased()
+        if pLower.contains("bom") || pLower.contains("malzeme") {
+            return """
+            ### Malzeme Listesi (BOM) Önerisi: \(project.title)
+            1. **Ana Denetleyici:** STM32G474RET6 (LQFP-64, 170MHz, HRTIM)
+            2. **Güç Yarıiletkeni:** GaN Systems / EPC GaN FET (100V, 15A)
+            3. **Sürücü IC:** TI UCC27282 (120V Bootstrapped Half-Bridge Driver)
+            4. **Pasifler:** 0402 1% ince film dirençler, X7R 50V seramik kapasitör dizisi
+            5. **İndüktör:** Coilcraft XAL7030-222MEC (2.2µH, Isat: 18.5A)
+            """
+        } else if pLower.contains("görev") || pLower.contains("aşama") || pLower.contains("böl") {
+            return """
+            ### Önerilen Alt Çalışma Aşamaları:
+            - [ ] **Şematik Kontrol:** HRTIM PWM çıkış hatlarına 10Ω sönümleme dirençlerinin eklenmesi.
+            - [ ] **Termal Simülasyon:** 1MHz anahtarlama altında GaN FET RDS(on) sıcaklık artışının modellenmesi.
+            - [ ] **Empedans Eşleme:** Gate sürücü loop alanının < 15mm² tutulması için PCB yerleşimi.
+            - [ ] **Firmware Başlatma:** ADC senkron tetikleme ile akım okuma kalibrasyonu.
+            """
+        } else {
+            return """
+            **Analiz Raporu: \(project.title)**
+            Mevcut ilerleme: %\(project.progress).
+            Kritik yol: Sürücü gecikmesi ve dead-time dengesi kontrol edilmelidir.
+            Öneri: Alt aşamalarda tanımlanan testleri sırayla tamamlayarak ilerleme yüzdesini güncelleyiniz.
+            """
         }
     }
 }
