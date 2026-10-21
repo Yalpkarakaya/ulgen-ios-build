@@ -60,15 +60,18 @@ jobs:
 
       - name: Enable macOS Native Screen Sharing (VNC Server)
         run: |
-          echo "Setting runner user password and activating ARD VNC Server..."
-          echo "runner:ulgen123" | sudo chpasswd || true
+          echo "Setting macOS runner user password and activating ARD VNC Server..."
+          CURRENT_USER=$(id -un)
+          echo "Target user: $CURRENT_USER"
+          sudo dscl . -passwd /Users/$CURRENT_USER "ulgen123" || true
+          sudo dscl . -passwd /Users/runner "ulgen123" || true
+          
+          # Enable legacy VNC password and full remote access for all users
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on \
+            -allowAccessFor -allUsers -privs -all \
             -clientopts -setvnclegacy -vnclegacy yes \
             -clientopts -setvncpw -vncpw "ulgen123" \
-            -users runner \
-            -access -on \
-            -privs -all \
             -restart -agent
           sleep 2
           nc -zv 127.0.0.1 5900 || echo "Port 5900 check done"
@@ -78,8 +81,22 @@ jobs:
           git clone --depth 1 https://github.com/novnc/noVNC.git /tmp/novnc
           git clone --depth 1 https://github.com/novnc/websockify.git /tmp/novnc/utils/websockify
           
-          # Patch noVNC RFB protocol version to accept Apple Remote Desktop 003.889
-          sed -i '' 's/case "003.008":/case "003.889":\ncase "003.008":/g' /tmp/novnc/core/rfb.js
+          # Patch noVNC via Node.js for ARD protocol 003.889 and prefer VNCAuth (Type 2)
+          node -e '
+          const fs = require("fs");
+          let file = fs.readFileSync("/tmp/novnc/core/rfb.js", "utf8");
+          file = file.replace(`case "003.008":`, `case "003.889":\ncase "003.008":`);
+          file = file.replace(
+            `for (let type of types) {`,
+            `if (types.includes(securityTypeVNCAuth)) { this._rfbAuthScheme = securityTypeVNCAuth; } else { for (let type of types) {`
+          );
+          file = file.replace(
+            `if (this._rfbAuthScheme === -1) {`,
+            `} if (this._rfbAuthScheme === -1) {`
+          );
+          fs.writeFileSync("/tmp/novnc/core/rfb.js", file);
+          console.log("noVNC rfb.js successfully patched!");
+          '
           
           # Launch novnc_proxy binding explicitly to 127.0.0.1:6080
           nohup /tmp/novnc/utils/novnc_proxy --vnc 127.0.0.1:5900 --listen 127.0.0.1:6080 > /tmp/novnc.log 2>&1 &
