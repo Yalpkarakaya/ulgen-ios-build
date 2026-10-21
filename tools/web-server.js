@@ -45,7 +45,12 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const wss = new WebSocket.Server({ noServer: true });
+const wss = new WebSocket.Server({
+  noServer: true,
+  handleProtocols: (protocols, req) => {
+    return 'binary';
+  }
+});
 
 wss.on('connection', (ws, req) => {
   console.log(`[WS] Client connected from ${req.socket.remoteAddress}, bridging to TCP 127.0.0.1:${TCP_TARGET_PORT}...`);
