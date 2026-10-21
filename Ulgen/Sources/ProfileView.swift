@@ -327,7 +327,7 @@ public struct ProfileView: View {
                     Circle()
                         .fill(mqtt.isConnected ? Color(hex: "#10B981") : Color(hex: "#F59E0B"))
                         .frame(width: 8, height: 8)
-                    Text(mqtt.isConnected ? "HiveMQ Çevrimiçi" : "Yerel Mod")
+                    Text(mqtt.isConnected ? "Çevrimiçi" : "Yerel Mod")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(mqtt.isConnected ? Color(hex: "#10B981") : AppTheme.textMuted(isDark: repo.isDarkMode))
                 }

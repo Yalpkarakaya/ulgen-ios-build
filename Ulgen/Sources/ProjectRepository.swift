@@ -298,8 +298,15 @@ public class ProjectRepository: ObservableObject {
             }
         }
 
-        // 2. Google Drive Master Backup Sync (if signed in)
+        // 2. Google Drive Master Backup Sync (Bidirectional LWW)
         if !userProfile.email.isEmpty {
+            if let remoteBackup = try? await GoogleDriveSyncEngine.shared.fetchMasterBackup() {
+                for remoteP in remoteBackup.projects {
+                    DispatchQueue.main.async {
+                        self.mergeIncomingProject(remoteP)
+                    }
+                }
+            }
             _ = try? await GoogleDriveSyncEngine.shared.pushMasterBackup(projects: projects, deleted: deletedProjectIds)
         }
 

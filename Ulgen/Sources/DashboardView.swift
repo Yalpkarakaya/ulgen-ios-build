@@ -13,6 +13,7 @@ public struct DashboardView: View {
     @State private var showingTrash = false
     @State private var showingAdmin = false
     @State private var sharingProject: Project? = nil
+    @State private var selectedProjectId: String? = nil
 
     // Accordions
     @State private var showSortPanel: Bool = false
@@ -98,11 +99,11 @@ public struct DashboardView: View {
                                         sectionHeader(title: "Sabitlenenler", count: pinnedProjects.count, icon: "pin.fill")
 
                                         ForEach(pinnedProjects) { project in
-                                            NavigationLink(destination: DetailView(projectId: project.id)) {
-                                                ProjectCardView(project: project, isDark: repo.isDarkMode) {
-                                                    self.sharingProject = project
-                                                }
-                                            }
+                                            ProjectCardView(project: project, isDark: repo.isDarkMode, onSelect: {
+                                                self.selectedProjectId = project.id
+                                            }, onShare: {
+                                                self.sharingProject = project
+                                            })
                                             .buttonStyle(.scaleSpring(scale: 0.985))
                                         }
                                     }
@@ -111,26 +112,26 @@ public struct DashboardView: View {
                                         sectionHeader(title: "Tüm Projeler", count: unpinnedProjects.count, icon: nil)
 
                                         ForEach(unpinnedProjects) { project in
-                                            NavigationLink(destination: DetailView(projectId: project.id)) {
-                                                ProjectCardView(project: project, isDark: repo.isDarkMode) {
-                                                    self.sharingProject = project
-                                                }
-                                            }
+                                            ProjectCardView(project: project, isDark: repo.isDarkMode, onSelect: {
+                                                self.selectedProjectId = project.id
+                                            }, onShare: {
+                                                self.sharingProject = project
+                                            })
                                             .buttonStyle(.scaleSpring(scale: 0.985))
                                         }
                                     }
                                 }
-
-                                // 1:1 Android Alt Arşiv Çekme Euler Sıvı Damlası (ArchivePullDroplet.kt paritesi - SIFIR METİN / SIFIR KUTU)
-                                ArchivePullDropletView(
-                                    pullProgress: min(1.0, max(0.0, archivePullOffset / 75.0)),
-                                    isArmed: isArchiveArmed,
-                                    isDarkMode: repo.isDarkMode
-                                )
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 14)
-                                .padding(.bottom, 8)
                             }
+
+                            // 1:1 Android Alt Arşiv Çekme Euler Sıvı Damlası (ArchivePullDroplet.kt paritesi - SIFIR METİN / SIFIR KUTU)
+                            ArchivePullDropletView(
+                                pullProgress: min(1.0, max(0.0, archivePullOffset / 75.0)),
+                                isArmed: isArchiveArmed,
+                                isDarkMode: repo.isDarkMode
+                            )
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 14)
+                            .padding(.bottom, 8)
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 14)
@@ -203,6 +204,14 @@ public struct DashboardView: View {
             }
             .sheet(item: $sharingProject) { p in
                 ExportShareView(project: p)
+            }
+            .navigationDestination(isPresented: Binding(
+                get: { selectedProjectId != nil },
+                set: { if !$0 { selectedProjectId = nil } }
+            )) {
+                if let id = selectedProjectId {
+                    DetailView(projectId: id)
+                }
             }
         }
     }
@@ -764,6 +773,7 @@ public struct DashboardView: View {
 public struct ProjectCardView: View {
     public var project: Project
     public var isDark: Bool
+    public var onSelect: () -> Void = {}
     public var onShare: () -> Void
 
     @State private var dragOffset: CGFloat = 0
@@ -1038,6 +1048,7 @@ public struct ProjectCardView: View {
         .gesture(
             DragGesture(minimumDistance: 15)
                 .onChanged { val in
+                    guard abs(val.translation.width) > abs(val.translation.height) else { return }
                     let trans = val.translation.width
                     if trans > 0 {
                         dragOffset = min(130, trans)
@@ -1075,6 +1086,9 @@ public struct ProjectCardView: View {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     dragOffset = 0
                 }
+            } else {
+                Haptics.light()
+                onSelect()
             }
         }
         } // ZStack

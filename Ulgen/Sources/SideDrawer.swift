@@ -25,14 +25,15 @@ public struct SideDrawer: View {
                     // MARK: - Gradient Header with User Info & Close Button
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top) {
-                            // User Avatar
+                            // User Avatar (52dp circle with 2dp border - 1:1 Android SideDrawer.kt lines 149-152)
                             ZStack {
                                 Circle()
-                                    .fill(Color.white.opacity(0.2))
-                                    .frame(width: 48, height: 48)
+                                    .fill(Color.white.opacity(0.15))
+                                    .frame(width: 52, height: 52)
+                                    .overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 2))
 
                                 Image(systemName: "person.fill")
-                                    .font(.system(size: 24))
+                                    .font(.system(size: 26))
                                     .foregroundColor(.white)
                             }
 
@@ -45,6 +46,18 @@ public struct SideDrawer: View {
                                     .font(.system(size: 12))
                                     .foregroundColor(.white.opacity(0.85))
                                     .lineLimit(1)
+
+                                if !mqtt.userEmail.isEmpty {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(Color(hex: "#86EFAC"))
+                                        Text("Google Hesabı Bağlı")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(Color(hex: "#86EFAC"))
+                                    }
+                                    .padding(.top, 2)
+                                }
                             }
                             .padding(.leading, 4)
 
@@ -64,20 +77,6 @@ public struct SideDrawer: View {
                             }
                             .buttonStyle(.scaleSpring(scale: 0.88))
                         }
-
-                        // MQTT / Sync Status Badge
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(mqtt.isConnected ? Color(hex: "#10B981") : Color(hex: "#F59E0B"))
-                                .frame(width: 8, height: 8)
-                            Text(mqtt.isConnected ? "HiveMQ Çevrimiçi" : "Yerel Mod (Çevrimdışı)")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.white.opacity(0.9))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.black.opacity(0.2))
-                        .cornerRadius(12)
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
