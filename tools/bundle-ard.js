@@ -31,41 +31,31 @@ try {
 
   const autoConnectSnippet = `
 <script>
-window.addEventListener('load', () => {
-  console.log('[AutoConnect] Page loaded, initializing automated connection...');
-  let connectInterval = setInterval(() => {
-    const btn = document.getElementById('noVNC_connect_button');
-    if (btn && btn.offsetParent !== null) {
-      console.log('[AutoConnect] Clicking Connect button...');
-      btn.click();
-      clearInterval(connectInterval);
-    }
-  }, 300);
-
-  // Auto-respond to credentials dialog with user 'ulgen'
+window.addEventListener('DOMContentLoaded', () => {
+  console.log('[AutoConnect] DOM ready, monitoring for ARD authentication dialog...');
   let submitted = false;
   const observer = new MutationObserver(() => {
     const dlg = document.getElementById('noVNC_credentials_dlg');
-    if (dlg && window.getComputedStyle(dlg).display !== 'none' && !submitted) {
+    if (dlg && dlg.classList.contains('noVNC_open') && !submitted) {
       const userInput = document.getElementById('noVNC_username_input');
       const passInput = document.getElementById('noVNC_password_input');
       const submitBtn = document.getElementById('noVNC_credentials_button');
       if (userInput && passInput && submitBtn) {
         submitted = true;
-        console.log('[AutoConnect] Injecting ulgen / ulgen123 credentials...');
+        console.log('[AutoConnect] ARD authentication required. Injecting ulgen / ulgen123...');
         userInput.value = 'ulgen';
-        userInput.dispatchEvent(new Event('input', { bubbles: true }));
-        userInput.dispatchEvent(new Event('change', { bubbles: true }));
         passInput.value = 'ulgen123';
-        passInput.dispatchEvent(new Event('input', { bubbles: true }));
-        passInput.dispatchEvent(new Event('change', { bubbles: true }));
-        submitBtn.click();
+        setTimeout(() => {
+          submitBtn.click();
+          console.log('[AutoConnect] Credentials submitted successfully!');
+        }, 150);
       }
-    } else if (dlg && window.getComputedStyle(dlg).display === 'none') {
+    } else if (dlg && !dlg.classList.contains('noVNC_open')) {
       submitted = false;
     }
   });
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+  const dlgEl = document.getElementById('noVNC_credentials_dlg') || document.body;
+  observer.observe(dlgEl, { attributes: true, attributeFilter: ['class'] });
 });
 </script>
 `;

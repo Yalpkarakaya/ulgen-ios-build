@@ -112,7 +112,7 @@ jobs:
           # Bundle all 40 modular JS files into a single instant app-bundle.js
           node tools/bundle-ard.js /tmp/novnc-ard
           
-          # Launch integrated Node.js HTTP + WebSocket server bridging directly to Screen Sharing port 5900 (with binary subprotocol)
+          # Launch integrated Node.js HTTP + WebSocket server bridging directly to Screen Sharing port 5900 (v2: binary subprotocol & guarded auth)
           nohup node tools/web-server.js /tmp/novnc-ard 6080 5900 > /tmp/webserver.log 2>&1 &
           
           # Verify local HTTP response

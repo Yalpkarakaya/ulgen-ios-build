@@ -27,6 +27,11 @@ const server = http.createServer((req, res) => {
   let reqPath = req.url.split('?')[0];
   if (reqPath === '/' || reqPath === '') reqPath = '/ard.html';
   
+  if (reqPath.startsWith('/app/locale/')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end('{}');
+  }
+
   const safeSuffix = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, '');
   const filePath = path.join(WEB_ROOT, safeSuffix);
 
