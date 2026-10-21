@@ -163,8 +163,7 @@ public class ProjectRepository: ObservableObject {
                                         Item(id: "i1-1", title: "Dispatcher ve Scope yönetimi", completed: true, quantity: 1),
                                         Item(id: "i1-2", title: "StateFlow ve SharedFlow kullanımı", completed: true, quantity: 1)
                                     ],
-                                    notes: [Note(content: "StateFlow, UI state'lerini saklamak ve gözlemlemek için en iyi pratiktir.")],
-                                    links: [LinkItem(title: "Resmi Kotlin Coroutines Kılavuzu", url: "https://kotlinlang.org/docs/coroutines-overview.html")]
+                                    notes: [Note(content: "StateFlow, UI state'lerini saklamak ve gözlemlemek için en iyi pratiktir.")]
                                 ),
                                 SubTopic(
                                     id: "st1-2",
