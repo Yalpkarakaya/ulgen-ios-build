@@ -102,6 +102,9 @@ jobs:
           git clone --depth 1 https://github.com/novnc/websockify.git /tmp/websockify
           git clone --recurse-submodules https://github.com/peetinc/noVNC-ARD.git /tmp/novnc-ard
           
+          # Bundle all 40 modular JS files into a single instant app-bundle.js
+          node tools/bundle-ard.js /tmp/novnc-ard
+          
           # Launch websockify dedicated solely to WebSockets on port 6081
           nohup /tmp/websockify/run 127.0.0.1:6081 127.0.0.1:5900 --heartbeat 30 > /tmp/websockify.log 2>&1 &
           
@@ -122,13 +125,17 @@ jobs:
         run: |
           brew install cloudflare/cloudflare/cloudflared
 
-      - name: Expose noVNC via Cloudflare Tunnel
+      - name: Expose Web Tunnels (Cloudflare + Localtunnel)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Start Cloudflare Tunnel
           nohup cloudflared tunnel --url http://127.0.0.1:6080 --no-chunked-encoding > /tmp/cloudflared.log 2>&1 &
           
-          echo "Waiting for Cloudflare Tunnel URL..."
+          # Start Localtunnel in parallel as a secondary direct tunnel
+          nohup npx -y localtunnel --port 6080 > /tmp/localtunnel.log 2>&1 &
+          
+          echo "Waiting for Tunnel URLs..."
           TUNNEL_URL=""
           for i in {1..25}; do
             sleep 2
@@ -138,31 +145,46 @@ jobs:
             fi
           done
 
-          if [ -z "$TUNNEL_URL" ]; then
-            echo "Cloudflare failed to start. Log output:"
-            cat /tmp/cloudflared.log
-            exit 1
-          fi
+          LOCAL_URL=""
+          for i in {1..15}; do
+            LOCAL_URL=$(grep -o 'https://[-0-9a-z]*\.loca\.lt' /tmp/localtunnel.log | head -n 1 || true)
+            if [ -n "$LOCAL_URL" ]; then
+              break
+            fi
+            sleep 1
+          done
 
-          FULL_LINK="${TUNNEL_URL}/ard.html?autoconnect=true&username=runner&password=ulgen123&ardSessionType=share&resize=scale&reconnect=true"
-          echo "LIVE_URL=$FULL_LINK" >> $GITHUB_ENV
+          CLOUDFLARE_LINK="${TUNNEL_URL}/ard.html?autoconnect=true&username=runner&password=ulgen123&ardSessionType=share&resize=scale&reconnect=true"
+          LOCALTUNNEL_LINK="${LOCAL_URL}/ard.html?autoconnect=true&username=runner&password=ulgen123&ardSessionType=share&resize=scale&reconnect=true"
+          
+          echo "LIVE_URL=$CLOUDFLARE_LINK" >> $GITHUB_ENV
 
           echo "================================================================="
-          echo "📱 SANAL IPHONE CANLI WEB BAGLANTI LINKI:"
-          echo "$FULL_LINK"
+          echo "🌐 CLOUDFLARE LINK: $CLOUDFLARE_LINK"
+          echo "🚀 LOCALTUNNEL LINK: $LOCALTUNNEL_LINK"
           echo "================================================================="
 
           # Write to Step Summary
-          echo "## 📱 Canlı Sanal iPhone Web Erişim Linki" >> $GITHUB_STEP_SUMMARY
-          echo "Tarayıcınızdan doğrudan aşağıdaki linke tıklayarak sanal iPhone'a erişebilirsiniz:" >> $GITHUB_STEP_SUMMARY
-          echo "👉 **[Sanal iPhone'a Bağlan ($FULL_LINK)]($FULL_LINK)**" >> $GITHUB_STEP_SUMMARY
+          echo "## 📱 Canlı Sanal iPhone Web Erişim Linkleri" >> $GITHUB_STEP_SUMMARY
+          echo "1. **[Cloudflare Bağlantısı]($CLOUDFLARE_LINK)**" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$LOCAL_URL" ]; then
+            echo "2. **[Alternatif Doğrudan Bağlantı (Localtunnel)]($LOCALTUNNEL_LINK)**" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Kullanıcı:** \`runner\`" >> $GITHUB_STEP_SUMMARY
           echo "- **VNC Şifresi:** \`ulgen123\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Aktif Süre:** 60 dakika" >> $GITHUB_STEP_SUMMARY
 
           # Save URL to release
-          echo "$FULL_LINK" > live_session_url.txt
+          cat << EOF > live_session_url.txt
+          Cloudflare: $CLOUDFLARE_LINK
+          Localtunnel: $LOCALTUNNEL_LINK
+          EOF
           gh release delete live-session --yes --cleanup-tag || gh release delete live-session --yes || true
+          git push origin :refs/tags/live-session || true
+          gh release create live-session live_session_url.txt \
+            --title "Canlı Sanal iPhone Oturumu" \
+            --notes "Canlı web bağlantı linki: $CLOUDFLARE_LINK (Alternatif: $LOCALTUNNEL_LINK)" || true
           git push origin :refs/tags/live-session || true
           gh release create live-session live_session_url.txt \
             --title "Canlı Sanal iPhone Oturumu" \
