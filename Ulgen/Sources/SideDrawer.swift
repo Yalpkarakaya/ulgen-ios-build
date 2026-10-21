@@ -95,7 +95,41 @@ public struct SideDrawer: View {
                         VStack(alignment: .leading, spacing: 2) {
                             // 1. HESAP & BULUT EŞİTLEME
                             sectionHeader("HESAP & BULUT EŞİTLEME")
-                            drawerActionItem(icon: "arrow.triangle.2.circlepath", title: "Bulutla Eşitle", subtitle: "Cihazlar arası anlık senkronizasyon") {
+
+                            if mqtt.userEmail.isEmpty {
+                                Button(action: {
+                                    Haptics.light()
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isOpen = false
+                                    }
+                                    onSelectView("profile")
+                                }) {
+                                    HStack(spacing: 12) {
+                                        GoogleGIconView(size: 20)
+                                            .frame(width: 24)
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Google ile Bağlan")
+                                                .font(.system(size: 14, weight: .medium))
+                                                .foregroundColor(Color(hex: "#8A4B1A"))
+
+                                            Text("Drive yedekleme ve cihazlar arası anlık senkronizasyon")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                                                .lineLimit(1)
+                                        }
+
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color.clear)
+                                    .cornerRadius(10)
+                                }
+                                .buttonStyle(.scaleSpring(scale: 0.97))
+                            }
+
+                            drawerActionItem(icon: "arrow.triangle.2.circlepath", title: "Bulutla Eşitle", subtitle: "Google Drive ve cihazlar arası çift yönlü eşitleme") {
                                 Haptics.light()
                                 Task {
                                     await repo.syncWithCloud()
@@ -104,7 +138,7 @@ public struct SideDrawer: View {
                                     isOpen = false
                                 }
                             }
-                            drawerActionItem(icon: "icloud.and.arrow.down", title: "Buluttan İndir", subtitle: "Sunucudaki ana kopyayı cihaza çeker") {
+                            drawerActionItem(icon: "icloud.and.arrow.down", title: "Buluttan İndir", subtitle: "Google Drive'daki ana kopyayı cihaza çeker") {
                                 Haptics.light()
                                 Task {
                                     await repo.syncWithCloud()
@@ -124,14 +158,6 @@ public struct SideDrawer: View {
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                         isOpen = false
                                     }
-                                }
-                            } else {
-                                drawerActionItem(icon: "person.crop.circle.badge.plus", title: "Hesap Bağla / Giriş Yap", subtitle: "Bulut senkronizasyonu için hesap bağla") {
-                                    Haptics.light()
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        isOpen = false
-                                    }
-                                    onSelectView("profile")
                                 }
                             }
 
@@ -379,5 +405,50 @@ public struct SideDrawer: View {
             .cornerRadius(10)
         }
         .buttonStyle(.scaleSpring(scale: 0.97))
+    }
+}
+
+/// 1:1 Google G Multi-Color Emblem drawn via Canvas.
+/// Corresponds to the official SVG in index.html (line 18932) and Android `SideDrawer.kt` lines 633-689.
+public struct GoogleGIconView: View {
+    public var size: CGFloat = 20
+
+    public init(size: CGFloat = 20) {
+        self.size = size
+    }
+
+    public var body: some View {
+        Canvas { context, sz in
+            let stroke = 3.2 * (sz.width / 20.0)
+            let radius = (min(sz.width, sz.height) - stroke) / 2.0
+            let center = CGPoint(x: sz.width / 2.0, y: sz.height / 2.0)
+
+            // Red top arc (start 195°, sweep 110°)
+            var redPath = Path()
+            redPath.addArc(center: center, radius: radius, startAngle: .degrees(195), endAngle: .degrees(305), clockwise: false)
+            context.stroke(redPath, with: .color(Color(hex: "#EA4335")), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+
+            // Yellow left arc (start 125°, sweep 75°)
+            var yellowPath = Path()
+            yellowPath.addArc(center: center, radius: radius, startAngle: .degrees(125), endAngle: .degrees(200), clockwise: false)
+            context.stroke(yellowPath, with: .color(Color(hex: "#FBBC05")), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+
+            // Green bottom arc (start 35°, sweep 90°)
+            var greenPath = Path()
+            greenPath.addArc(center: center, radius: radius, startAngle: .degrees(35), endAngle: .degrees(125), clockwise: false)
+            context.stroke(greenPath, with: .color(Color(hex: "#34A853")), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+
+            // Blue right arc (start -40°, sweep 75°)
+            var bluePath = Path()
+            bluePath.addArc(center: center, radius: radius, startAngle: .degrees(-40), endAngle: .degrees(35), clockwise: false)
+            context.stroke(bluePath, with: .color(Color(hex: "#4285F4")), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+
+            // Blue horizontal bar
+            var barPath = Path()
+            barPath.move(to: center)
+            barPath.addLine(to: CGPoint(x: center.x + radius, y: center.y))
+            context.stroke(barPath, with: .color(Color(hex: "#4285F4")), style: StrokeStyle(lineWidth: stroke, lineCap: .square))
+        }
+        .frame(width: size, height: size)
     }
 }

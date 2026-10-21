@@ -18,6 +18,10 @@ public struct DashboardView: View {
     @State private var showSortPanel: Bool = false
     @State private var showFilterPanel: Bool = false
 
+    // 1:1 Euler Liquid Droplets
+    @State private var archivePullOffset: CGFloat = 0
+    @State private var isArchiveArmed: Bool = false
+
     private let sortOptions: [(id: String, label: String)] = [
         ("custom", "Özel Sıralama (Sürükle & Bırak)"),
         ("alpha_asc", "Alfabetik (A → Z)"),
@@ -61,16 +65,25 @@ public struct DashboardView: View {
                     // MARK: - 2. Main Scroll Content
                     ScrollView {
                         VStack(spacing: 12) {
+                            // 1:1 Euler Pull-To-Refresh Droplet
+                            if repo.isSyncing {
+                                PullToRefreshDropletView(pullProgress: 1.0, isRefreshing: true, isDarkMode: repo.isDarkMode)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 4)
+                                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                            }
+
                             // Arama Çubuğu (#search-input)
                             searchBarField
 
-                            // Kontrol Satırı (.dashboard-controls): Sıralama Ölçütü ve Filtreler Akordeon Butonları
-                            controlsRow
+                            // Connected Dual Accordion (.controls-group.connected 1:1 with DashboardScreen.kt lines 750-1070)
+                            VStack(spacing: 0) {
+                                controlsRow
 
-                            // Connected Dual Accordion (1:1 with DashboardScreen.kt lines 750-1070)
-                            if showSortPanel || showFilterPanel {
-                                accordionContainer
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                if showSortPanel || showFilterPanel {
+                                    accordionContainer
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
                             }
 
                             // Proje Kartları Listesi (Sabitlenenler ve Tüm Projeler 1:1 Parite)
@@ -108,51 +121,46 @@ public struct DashboardView: View {
                                     }
                                 }
 
-                                // 1:1 Android Alt Arşiv Çekme Droplet (ArchivePullDroplet.kt paritesi)
-                                Button(action: {
-                                    Haptics.medium()
-                                    showingArchive = true
-                                }) {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "archivebox.fill")
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundColor(AppTheme.primary)
-
-                                        Text("Arşivi açmak için dokunun veya yukarı kaydırın")
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-
-                                        Image(systemName: "chevron.up")
-                                            .font(.system(size: 11, weight: .bold))
-                                            .foregroundColor(AppTheme.primary)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
-                                    .background(repo.isDarkMode ? Color(hex: "#1D1E22") : Color(hex: "#F3F1EE"))
-                                    .cornerRadius(12)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1)
-                                    )
-                                }
-                                .buttonStyle(.scaleSpring(scale: 0.98))
+                                // 1:1 Android Alt Arşiv Çekme Euler Sıvı Damlası (ArchivePullDroplet.kt paritesi - SIFIR METİN / SIFIR KUTU)
+                                ArchivePullDropletView(
+                                    pullProgress: min(1.0, max(0.0, archivePullOffset / 75.0)),
+                                    isArmed: isArchiveArmed,
+                                    isDarkMode: repo.isDarkMode
+                                )
+                                .frame(maxWidth: .infinity)
                                 .padding(.top, 14)
                                 .padding(.bottom, 8)
-                                .gesture(
-                                    DragGesture(minimumDistance: 20)
-                                        .onEnded { value in
-                                            if value.translation.height < -25 {
-                                                Haptics.medium()
-                                                showingArchive = true
-                                            }
-                                        }
-                                )
                             }
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 14)
                         .padding(.bottom, 100)
                     }
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 12)
+                            .onChanged { val in
+                                if val.translation.height < -10 {
+                                    let pull = -val.translation.height - 10
+                                    archivePullOffset = pull
+                                    if pull >= 75.0 && !isArchiveArmed {
+                                        isArchiveArmed = true
+                                        Haptics.medium()
+                                    } else if pull < 75.0 && isArchiveArmed {
+                                        isArchiveArmed = false
+                                    }
+                                }
+                            }
+                            .onEnded { _ in
+                                if isArchiveArmed {
+                                    Haptics.heavy()
+                                    showingArchive = true
+                                }
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                    archivePullOffset = 0
+                                    isArchiveArmed = false
+                                }
+                            }
+                    )
                     .refreshable {
                         Haptics.light()
                         await repo.syncWithCloud()
@@ -321,6 +329,14 @@ public struct DashboardView: View {
         .shadow(color: repo.isDarkMode ? Color.black.opacity(0.2) : Color.black.opacity(0.03), radius: 4, x: 0, y: 1)
     }
 
+    // .control-group.connected: Panel açılırken butonun alt köşeleri 0.dp olur ve kendi içinden çıkar
+    private var sortBottomRadius: CGFloat {
+        showSortPanel ? 0 : 16
+    }
+    private var filterBottomRadius: CGFloat {
+        showFilterPanel ? 0 : 16
+    }
+
     // MARK: - Controls Row (Sıralama Ölçütü & Filtreler)
     private var controlsRow: some View {
         HStack(spacing: 8) {
@@ -352,8 +368,8 @@ public struct DashboardView: View {
                 .padding(.horizontal, 10)
                 .frame(height: 44)
                 .background(showSortPanel ? (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")) : AppTheme.card(isDark: repo.isDarkMode))
-                .cornerRadius(16)
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(showSortPanel ? (repo.isDarkMode ? Color(hex: "#52545E") : Color(hex: "#8C867B")) : AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
+                .clipShape(CustomCornerShape(tl: 16, tr: 16, bl: sortBottomRadius, br: sortBottomRadius))
+                .overlay(CustomCornerShape(tl: 16, tr: 16, bl: sortBottomRadius, br: sortBottomRadius).stroke(showSortPanel ? (repo.isDarkMode ? Color(hex: "#52545E") : Color(hex: "#8C867B")) : AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
             }
             .frame(maxWidth: .infinity)
             .buttonStyle(.scaleSpring(scale: 0.97))
@@ -396,36 +412,52 @@ public struct DashboardView: View {
                 .padding(.horizontal, 10)
                 .frame(height: 44)
                 .background(showFilterPanel ? (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")) : AppTheme.card(isDark: repo.isDarkMode))
-                .cornerRadius(16)
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(showFilterPanel ? (repo.isDarkMode ? Color(hex: "#52545E") : Color(hex: "#8C867B")) : AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
+                .clipShape(CustomCornerShape(tl: 16, tr: 16, bl: filterBottomRadius, br: filterBottomRadius))
+                .overlay(CustomCornerShape(tl: 16, tr: 16, bl: filterBottomRadius, br: filterBottomRadius).stroke(showFilterPanel ? (repo.isDarkMode ? Color(hex: "#52545E") : Color(hex: "#8C867B")) : AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
             }
             .frame(maxWidth: .infinity)
             .buttonStyle(.scaleSpring(scale: 0.97))
         }
     }
 
-    // MARK: - Unified Dual Zipper Accordion Container (1:1 with DashboardScreen.kt)
+    // MARK: - Unified Dual Connected Zipper Accordion Container (1:1 with DashboardScreen.kt lines 750-1070)
     private var accordionContainer: some View {
         Group {
             if showSortPanel && showFilterPanel {
+                // İki panel de açık -> 50% / 50% yan yana, butonların altına doğrudan bağlı
                 HStack(alignment: .top, spacing: 8) {
                     sortOptionsPanel(isDual: true)
+                        .padding(10)
+                        .background(repo.isDarkMode ? Color(hex: "#1D1E22") : Color(hex: "#F3F1EE"))
+                        .clipShape(CustomCornerShape(tl: 0, tr: 0, bl: 16, br: 16))
+                        .overlay(CustomCornerShape(tl: 0, tr: 0, bl: 16, br: 16).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
                         .frame(maxWidth: .infinity)
+
                     filterOptionsPanel(isDual: true)
+                        .padding(10)
+                        .background(repo.isDarkMode ? Color(hex: "#1D1E22") : Color(hex: "#F3F1EE"))
+                        .clipShape(CustomCornerShape(tl: 0, tr: 0, bl: 16, br: 16))
+                        .overlay(CustomCornerShape(tl: 0, tr: 0, bl: 16, br: 16).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
                         .frame(maxWidth: .infinity)
                 }
             } else if showSortPanel {
+                // Yalnızca Sıralama açık -> Butonun altından bağlanıp tam genişliğe açılır
                 sortOptionsPanel(isDual: false)
+                    .padding(10)
+                    .background(repo.isDarkMode ? Color(hex: "#1D1E22") : Color(hex: "#F3F1EE"))
+                    .clipShape(CustomCornerShape(tl: 0, tr: 16, bl: 16, br: 16))
+                    .overlay(CustomCornerShape(tl: 0, tr: 16, bl: 16, br: 16).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
                     .frame(maxWidth: .infinity)
             } else if showFilterPanel {
+                // Yalnızca Filtreler açık -> Butonun altından bağlanıp tam genişliğe açılır
                 filterOptionsPanel(isDual: false)
+                    .padding(10)
+                    .background(repo.isDarkMode ? Color(hex: "#1D1E22") : Color(hex: "#F3F1EE"))
+                    .clipShape(CustomCornerShape(tl: 16, tr: 0, bl: 16, br: 16))
+                    .overlay(CustomCornerShape(tl: 16, tr: 0, bl: 16, br: 16).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
                     .frame(maxWidth: .infinity)
             }
         }
-        .padding(10)
-        .background(repo.isDarkMode ? Color(hex: "#1D1E22") : Color(hex: "#F3F1EE"))
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
     }
 
     // MARK: - Sort Options Panel (2 Columns Layout 1:1)
@@ -734,6 +766,8 @@ public struct ProjectCardView: View {
     public var isDark: Bool
     public var onShare: () -> Void
 
+    @State private var dragOffset: CGFloat = 0
+
     public var body: some View {
         let (completedTasks, totalTasks) = countTasks(project)
         let isCompleted = (project.progress == 100) && (totalTasks == 0 || completedTasks == totalTasks)
@@ -754,7 +788,75 @@ public struct ProjectCardView: View {
         let bodyColor = customText?.opacity(0.85) ?? AppTheme.textBody(isDark: isDark)
         let mutedColor = customText?.opacity(0.65) ?? AppTheme.textMuted(isDark: isDark)
 
-        VStack(alignment: .leading, spacing: 0) {
+        ZStack {
+            // Arka Plan Swipe Butonları (1:1 Android ProjectCardSwipeBackground)
+            if dragOffset > 5 {
+                // Sağa Çekilince Solda Açılan Sabitleme / Pin Butonu
+                HStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: project.pinned ? "pin.slash.fill" : "pin.fill")
+                            .font(.system(size: 18, weight: .bold))
+                        Text(project.pinned ? "SABİTİ KALDIR" : "SABİTLE")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .frame(maxHeight: .infinity)
+                    .background(Color(hex: "#F59E0B"))
+                    .cornerRadius(20)
+
+                    Spacer()
+                }
+            } else if dragOffset < -5 {
+                // Sola Çekilince Sağda Açılan Arşiv (#048058) ve Sil (#C72626) Butonları
+                HStack(spacing: 6) {
+                    Spacer()
+
+                    // ARŞİV
+                    Button(action: {
+                        Haptics.medium()
+                        ProjectRepository.shared.toggleArchive(id: project.id)
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            dragOffset = 0
+                        }
+                    }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "archivebox.fill")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("ARŞİV")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(width: 68)
+                        .frame(maxHeight: .infinity)
+                        .background(Color(hex: "#048058"))
+                        .cornerRadius(18)
+                    }
+
+                    // SİL
+                    Button(action: {
+                        Haptics.heavy()
+                        ProjectRepository.shared.deleteProject(id: project.id)
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            dragOffset = 0
+                        }
+                    }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("SİL")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(width: 68)
+                        .frame(maxHeight: .infinity)
+                        .background(Color(hex: "#C72626"))
+                        .cornerRadius(18)
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 0) {
             // 1. Üst Satır: Kategori İkonu + Başlık + Öncelik + Tutamaç + Pin + Menü
             HStack(alignment: .center, spacing: 10) {
                 CategoryVectorIconView(categoryId: project.category, isDarkMode: isCardDark)
@@ -932,6 +1034,50 @@ public struct ProjectCardView: View {
                 .stroke(cardBorderColor, lineWidth: cardBorderWidth)
         )
         .shadow(color: isCardDark ? Color.black.opacity(0.35) : Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+        .offset(x: dragOffset)
+        .gesture(
+            DragGesture(minimumDistance: 15)
+                .onChanged { val in
+                    let trans = val.translation.width
+                    if trans > 0 {
+                        dragOffset = min(130, trans)
+                    } else {
+                        dragOffset = max(-160, trans)
+                    }
+                }
+                .onEnded { val in
+                    let trans = val.translation.width
+                    if trans > 70 {
+                        Haptics.medium()
+                        ProjectRepository.shared.togglePin(id: project.id)
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            dragOffset = 0
+                        }
+                    } else if trans < -110 {
+                        Haptics.medium()
+                        ProjectRepository.shared.toggleArchive(id: project.id)
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            dragOffset = 0
+                        }
+                    } else if trans < -40 {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            dragOffset = -146
+                        }
+                    } else {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            dragOffset = 0
+                        }
+                    }
+                }
+        )
+        .onTapGesture {
+            if abs(dragOffset) > 5 {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    dragOffset = 0
+                }
+            }
+        }
+        } // ZStack
         .contextMenu {
             Button(action: {
                 Haptics.light()

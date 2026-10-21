@@ -2,92 +2,6 @@ import Foundation
 import Combine
 import SwiftUI
 
-// MARK: - Cloudflare Sync Service (1:1 with Android CloudflareSyncService.kt)
-public enum CloudflareSyncService {
-    public static let baseURL = "https://takip-backend.ulgennotes.workers.dev"
-
-    public static func pushProject(_ project: Project) async -> Bool {
-        guard let url = URL(string: "\(baseURL)/api/project/\(project.id)") else { return false }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        guard let data = try? JSONEncoder().encode(project) else { return false }
-        request.httpBody = data
-
-        do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200
-        } catch {
-            return false
-        }
-    }
-
-    public static func fetchProject(id: String) async -> Project? {
-        guard let url = URL(string: "\(baseURL)/api/project/\(id)") else { return nil }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            if (response as? HTTPURLResponse)?.statusCode == 200 {
-                return try? JSONDecoder().decode(Project.self, from: data)
-            }
-            return nil
-        } catch {
-            return nil
-        }
-    }
-
-    public static func deleteProject(id: String) async -> Bool {
-        guard let url = URL(string: "\(baseURL)/api/project/\(id)") else { return false }
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200
-        } catch {
-            return false
-        }
-    }
-
-    public static func checkUsername(_ username: String) async -> (available: Bool, message: String) {
-        let clean = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().replacingOccurrences(of: "@", with: "")
-        guard !clean.isEmpty, let url = URL(string: "\(baseURL)/api/username/check?username=\(clean)") else {
-            return (true, "Müsait")
-        }
-        do {
-            let (data, resp) = try await URLSession.shared.data(from: url)
-            if (resp as? HTTPURLResponse)?.statusCode == 200,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let available = json["available"] as? Bool {
-                return (available, available ? "Kullanıcı adı müsait" : "Bu kullanıcı adı alınmış")
-            }
-            return (true, "Yerel modda onaylandı")
-        } catch {
-            return (true, "Çevrimdışı onay")
-        }
-    }
-
-    public static func claimUsername(username: String, uid: String, email: String?, displayName: String?) async -> Bool {
-        let clean = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().replacingOccurrences(of: "@", with: "")
-        guard let url = URL(string: "\(baseURL)/api/username/claim") else { return false }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        var dict: [String: String] = ["username": clean, "uid": uid]
-        if let email = email, !email.isEmpty { dict["email"] = email }
-        if let displayName = displayName, !displayName.isEmpty { dict["displayName"] = displayName }
-        guard let body = try? JSONSerialization.data(withJSONObject: dict) else { return false }
-        request.httpBody = body
-        do {
-            let (_, resp) = try await URLSession.shared.data(for: request)
-            return (resp as? HTTPURLResponse)?.statusCode == 200
-        } catch {
-            return true
-        }
-    }
-}
-
 // MARK: - ProjectRepository (1:1 with ProjectRepository.kt)
 public class ProjectRepository: ObservableObject {
     public static let shared = ProjectRepository()
@@ -374,7 +288,9 @@ public class ProjectRepository: ObservableObject {
             self.isSyncing = true
         }
 
+        // 1. Cloudflare Worker KV Sync (push local & fetch remote)
         for p in projects {
+            _ = await CloudflareSyncService.pushProject(p)
             if let remote = await CloudflareSyncService.fetchProject(id: p.id) {
                 DispatchQueue.main.async {
                     self.mergeIncomingProject(remote)
@@ -382,9 +298,16 @@ public class ProjectRepository: ObservableObject {
             }
         }
 
+        // 2. Google Drive Master Backup Sync (if signed in)
+        if !userProfile.email.isEmpty {
+            _ = try? await GoogleDriveSyncEngine.shared.pushMasterBackup(projects: projects, deleted: deletedProjectIds)
+        }
+
+        // 3. MQTT Live Broadcast
         let event = AccountSyncEvent(
             senderDeviceId: MqttSyncEngine.shared.deviceId,
             eventType: "STATE_SYNC",
+            projectId: "all",
             timestamp: Int64(Date().timeIntervalSince1970 * 1000)
         )
         MqttSyncEngine.shared.broadcastAccountEvent(event)
