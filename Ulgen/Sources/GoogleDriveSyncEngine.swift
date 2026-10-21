@@ -28,8 +28,22 @@ public class GoogleDriveSyncEngine: ObservableObject {
     @Published public var lastSyncTimestamp: Date? = nil
     @Published public var userEmail: String = ""
 
+    public var isAuthorized: Bool {
+        guard let token = accessToken else { return false }
+        return !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var accessToken: String? = nil
     private let session = URLSession(configuration: .default)
+
+    public init() {
+        if let savedToken = UserDefaults.standard.string(forKey: "ulgen_google_access_token"), !savedToken.isEmpty {
+            self.accessToken = savedToken
+        }
+        if let savedEmail = UserDefaults.standard.string(forKey: "ulgen_google_user_email"), !savedEmail.isEmpty {
+            self.userEmail = savedEmail
+        }
+    }
 
     public struct DriveFileItem: Codable, Identifiable {
         public var id: String
@@ -60,7 +74,80 @@ public class GoogleDriveSyncEngine: ObservableObject {
     }
 
     public func setAccessToken(_ token: String) {
-        self.accessToken = token
+        let clean = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.accessToken = clean
+        UserDefaults.standard.set(clean, forKey: "ulgen_google_access_token")
+    }
+
+    public func signOut() {
+        self.accessToken = nil
+        self.userEmail = ""
+        UserDefaults.standard.removeObject(forKey: "ulgen_google_access_token")
+        UserDefaults.standard.removeObject(forKey: "ulgen_google_user_email")
+        MqttSyncEngine.shared.disconnect()
+        MqttSyncEngine.shared.userEmail = ""
+        ProjectRepository.shared.userProfile.email = ""
+        ProjectRepository.shared.saveLocalDataDirect()
+    }
+
+    public func verifyAndSaveToken(_ token: String) async throws -> (email: String, name: String) {
+        let cleanToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanToken.isEmpty, let url = URL(string: Self.driveAboutApi) else {
+            throw NSError(domain: "GoogleDriveSyncEngine", code: 400, userInfo: [NSLocalizedDescriptionKey: "Geçersiz yetkilendirme belirteci"])
+        }
+
+        var req = URLRequest(url: url)
+        req.setValue("Bearer \(cleanToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, resp) = try await session.data(for: req)
+        guard let httpResp = resp as? HTTPURLResponse, httpResp.statusCode == 200 else {
+            let statusCode = (resp as? HTTPURLResponse)?.statusCode ?? 500
+            throw NSError(domain: "GoogleDriveSyncEngine", code: statusCode, userInfo: [NSLocalizedDescriptionKey: "Google Drive API doğrulaması başarısız (HTTP \(statusCode)). Belirteç geçersiz veya süresi dolmuş."])
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let userObj = json["user"] as? [String: Any] else {
+            throw NSError(domain: "GoogleDriveSyncEngine", code: 500, userInfo: [NSLocalizedDescriptionKey: "Kullanıcı profili çözümlenemedi."])
+        }
+
+        let email = (userObj["emailAddress"] as? String) ?? "kullanici@ulgen.app"
+        let name = (userObj["displayName"] as? String) ?? "Ülgen Mühendisi"
+
+        DispatchQueue.main.async {
+            self.setAccessToken(cleanToken)
+            self.userEmail = email
+            UserDefaults.standard.set(email, forKey: "ulgen_google_user_email")
+            ProjectRepository.shared.userProfile.email = email
+            ProjectRepository.shared.userProfile.fullName = name
+            ProjectRepository.shared.saveLocalDataDirect()
+            MqttSyncEngine.shared.start(email: email)
+        }
+
+        return (email, name)
+    }
+
+    public func syncNow() async throws {
+        guard isAuthorized else { return }
+        DispatchQueue.main.async { self.isSyncing = true }
+        defer {
+            DispatchQueue.main.async {
+                self.isSyncing = false
+                self.lastSyncTimestamp = Date()
+            }
+        }
+
+        if let remote = try await fetchMasterBackup() {
+            DispatchQueue.main.async {
+                for p in remote.projects {
+                    ProjectRepository.shared.mergeIncomingProject(p)
+                }
+            }
+        }
+
+        _ = try await pushMasterBackup(
+            projects: ProjectRepository.shared.projects,
+            deleted: ProjectRepository.shared.deletedProjectIds
+        )
     }
 
     // MARK: - Root & Folder Management

@@ -146,13 +146,26 @@ public struct DetailView: View {
                     }
                 }
                 .sheet(isPresented: $showingAddTopic) {
-                    addTopicSheet(p)
+                    AddTopicSheet(projectId: p.id)
                 }
                 .sheet(isPresented: $showingAddSubTopic) {
-                    addSubTopicSheet(p)
+                    AddSubTopicSheet(projectId: p.id, mainTopicId: activeTopicIdForSub)
                 }
                 .sheet(isPresented: $showingAddItem) {
-                    addItemSheet(p)
+                    AddItemSheet(projectId: p.id, mainTopicId: activeSubTopicTuple.mainId, subTopicId: activeSubTopicTuple.subId)
+                }
+                .sheet(isPresented: $showingShare) {
+                    ExportShareView(project: p)
+                }
+                .alert("Projeyi Sil", isPresented: $showingDeleteConfirm) {
+                    Button("Sil", role: .destructive) {
+                        Haptics.heavy()
+                        repo.deleteProject(id: p.id)
+                        dismiss()
+                    }
+                    Button("İptal", role: .cancel) {}
+                } message: {
+                    Text("Bu projeyi çöp kutusuna taşımak istediğinizden emin misiniz?")
                 }
             } else {
                 Text("Proje bulunamadı")
@@ -567,26 +580,5 @@ public struct DetailView: View {
             completed += sub.items.filter { $0.completed }.count
         }
         return (completed, total)
-    }
-
-    private func addTopicSheet(_ p: Project) -> some View {
-        NavigationStack {
-            Text("Ana Başlık Ekle")
-                .navigationTitle("Yeni Başlık")
-        }
-    }
-
-    private func addSubTopicSheet(_ p: Project) -> some View {
-        NavigationStack {
-            Text("Alt Başlık Ekle")
-                .navigationTitle("Yeni Alt Başlık")
-        }
-    }
-
-    private func addItemSheet(_ p: Project) -> some View {
-        NavigationStack {
-            Text("Madde Ekle")
-                .navigationTitle("Yeni Madde")
-        }
     }
 }

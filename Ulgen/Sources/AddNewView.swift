@@ -27,6 +27,7 @@ public struct AddNewView: View {
     @State private var finalGoals: String = ""
     @State private var extraInstructions: String = ""
     @State private var isGeneratingAiRoadmap: Bool = false
+    @State private var generatedTopics: [MainTopic] = []
 
     private let categories: [(id: String, label: String)] = [
         ("proje", "Proje"),
@@ -323,6 +324,20 @@ public struct AddNewView: View {
             wizardField(title: "4. Nihai Hedeflerim", text: $finalGoals, placeholder: "Örn: 1Mbit/s telemetri veri kaydı")
             wizardField(title: "5. AI'ya Ek Talimatlar", text: $extraInstructions, placeholder: "Örn: Modüler HAL sürücüleri kullan")
 
+            if !generatedTopics.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(Color(hex: "#10B981"))
+                    Text("\(generatedTopics.count) Aşama ve \(generatedTopics.reduce(0) { $0 + $1.subTopics.count }) Alt Başlık Hazırlandı")
+                        .font(.system(size: 11.5, weight: .bold))
+                        .foregroundColor(Color(hex: "#10B981"))
+                    Spacer()
+                }
+                .padding(8)
+                .background(Color(hex: "#10B981").opacity(0.12))
+                .cornerRadius(6)
+            }
+
             Button(action: generateAiRoadmap) {
                 HStack(spacing: 6) {
                     if isGeneratingAiRoadmap {
@@ -363,9 +378,25 @@ public struct AddNewView: View {
 
     private func generateAiRoadmap() {
         isGeneratingAiRoadmap = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            isGeneratingAiRoadmap = false
-            Haptics.success()
+        let objList = finalGoals.isEmpty ? [] : [finalGoals]
+        AiService.shared.generateRoadmap(
+            title: title.isEmpty ? "Yeni Proje" : title,
+            category: category,
+            description: description,
+            knownTopics: knownTopics,
+            learningGoals: learningGoals,
+            resources: resources,
+            objectives: objList,
+            aiPrompt: extraInstructions
+        ) { result in
+            self.isGeneratingAiRoadmap = false
+            switch result {
+            case .success(let topics):
+                self.generatedTopics = topics
+                Haptics.success()
+            case .failure:
+                Haptics.error()
+            }
         }
     }
 
@@ -392,7 +423,8 @@ public struct AddNewView: View {
             priority: priority,
             startDate: startStr,
             deadline: deadlineStr,
-            customColors: customColors
+            customColors: customColors,
+            mainTopics: generatedTopics
         )
         dismiss()
     }

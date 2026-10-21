@@ -115,6 +115,18 @@ public struct MChatView: View {
                             Spacer()
                         }
                     }
+
+                    if isGenerating {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .tint(AppTheme.primary)
+                            Text("Ülgen AI yanıt üretiyor...")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
             }
         }
@@ -253,5 +265,18 @@ public struct MChatView: View {
 
         inputText = ""
         repo.addChatMessage(projectId: p.id, role: "user", content: text)
+        isGenerating = true
+
+        AiService.shared.sendMessage(project: p, userMessage: text) { result in
+            DispatchQueue.main.async {
+                self.isGenerating = false
+                switch result {
+                case .success(let reply):
+                    self.repo.addChatMessage(projectId: p.id, role: "assistant", content: reply)
+                case .failure(let err):
+                    self.repo.addChatMessage(projectId: p.id, role: "assistant", content: "AI Servisi Hatası: \(err.localizedDescription)")
+                }
+            }
+        }
     }
 }

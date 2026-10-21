@@ -618,23 +618,6 @@ public struct DashboardView: View {
             ForEach(priorities.filter { $0.id != "all" }, id: \.id) { prio in
                 priorityItemButton(prio: prio, isDual: isDual)
             }
-
-            if repo.selectedCategory != "all" || repo.selectedPriority != "all" {
-                Button(action: {
-                    Haptics.light()
-                    repo.selectedCategory = "all"
-                    repo.selectedPriority = "all"
-                }) {
-                    Text("Temizle")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(Color(hex: "#EF4444"))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 24)
-                        .background(Color(hex: "#EF4444").opacity(0.12))
-                        .cornerRadius(6)
-                }
-                .buttonStyle(.scaleSpring(scale: 0.96))
-            }
         }
     }
 
@@ -673,7 +656,7 @@ public struct DashboardView: View {
                 Spacer()
             }
             .padding(.horizontal, isDual ? 4 : 6)
-            .frame(height: 28)
+            .frame(height: isDual ? 36 : 28)
             .background(isSel ? pColor.opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
             .cornerRadius(7)
             .overlay(
@@ -834,28 +817,8 @@ public struct ProjectCardView: View {
         ZStack {
             // Arka Plan Swipe Butonları (1:1 Android ProjectCardSwipeBackground)
             if dragOffset > 5 {
-                // Sağa Çekilince Solda Açılan Sabitleme / Pin Butonu
+                // Sağa Çekilince Solda Açılan Yeşil Arşiv Butonu (#048058)
                 HStack {
-                    HStack(spacing: 8) {
-                        Image(systemName: project.pinned ? "pin.slash.fill" : "pin.fill")
-                            .font(.system(size: 18, weight: .bold))
-                        Text(project.pinned ? "SABİTİ KALDIR" : "SABİTLE")
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .frame(maxHeight: .infinity)
-                    .background(Color(hex: "#F59E0B"))
-                    .cornerRadius(20)
-
-                    Spacer()
-                }
-            } else if dragOffset < -5 {
-                // Sola Çekilince Sağda Açılan Arşiv (#048058) ve Sil (#C72626) Butonları
-                HStack(spacing: 6) {
-                    Spacer()
-
-                    // ARŞİV
                     Button(action: {
                         Haptics.medium()
                         ProjectRepository.shared.toggleArchive(id: project.id)
@@ -863,20 +826,26 @@ public struct ProjectCardView: View {
                             dragOffset = 0
                         }
                     }) {
-                        VStack(spacing: 4) {
+                        HStack(spacing: 8) {
                             Image(systemName: "archivebox.fill")
-                                .font(.system(size: 16, weight: .bold))
-                            Text("ARŞİV")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.system(size: 18, weight: .bold))
+                            Text(project.archived ? "ARŞİVDEN ÇIKAR" : "ARŞİV")
+                                .font(.system(size: 12, weight: .bold))
                         }
                         .foregroundColor(.white)
-                        .frame(width: 68)
+                        .padding(.horizontal, 20)
                         .frame(maxHeight: .infinity)
                         .background(Color(hex: "#048058"))
-                        .cornerRadius(18)
+                        .cornerRadius(20)
                     }
 
-                    // SİL
+                    Spacer()
+                }
+            } else if dragOffset < -5 {
+                // Sola Çekilince Sağda Açılan Kırmızı Sil Butonu (#C72626)
+                HStack {
+                    Spacer()
+
                     Button(action: {
                         Haptics.heavy()
                         ProjectRepository.shared.deleteProject(id: project.id)
@@ -884,23 +853,23 @@ public struct ProjectCardView: View {
                             dragOffset = 0
                         }
                     }) {
-                        VStack(spacing: 4) {
+                        HStack(spacing: 8) {
                             Image(systemName: "trash.fill")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.system(size: 18, weight: .bold))
                             Text("SİL")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                         }
                         .foregroundColor(.white)
-                        .frame(width: 68)
+                        .padding(.horizontal, 20)
                         .frame(maxHeight: .infinity)
                         .background(Color(hex: "#C72626"))
-                        .cornerRadius(18)
+                        .cornerRadius(20)
                     }
                 }
             }
 
             VStack(alignment: .leading, spacing: 0) {
-            // 1. Üst Satır: Kategori İkonu + Başlık + Öncelik + Tutamaç + Pin + Menü
+            // 1. Üst Satır: Kategori İkonu + Başlık + Öncelik + Tutamaç + Pin (Üç nokta kaldırıldı - 1:1 Android)
             HStack(alignment: .center, spacing: 10) {
                 CategoryVectorIconView(categoryId: project.category, isDarkMode: isCardDark)
 
@@ -936,43 +905,6 @@ public struct ProjectCardView: View {
                             .font(.system(size: 15))
                             .foregroundColor(project.pinned ? (customText ?? Color(hex: "#F59E0B")) : mutedColor.opacity(0.5))
                             .rotationEffect(.degrees(project.pinned ? 0 : 45))
-                    }
-                    .buttonStyle(.scaleSpring(scale: 0.88))
-
-                    // Hızlı Aksiyon Menüsü (Arşiv, Paylaş, Sil)
-                    Menu {
-                        Button(action: {
-                            Haptics.light()
-                            ProjectRepository.shared.togglePin(id: project.id)
-                        }) {
-                            Label(project.pinned ? "Sabitlemeyi Kaldır" : "Başa Sabitle", systemImage: project.pinned ? "pin.slash" : "pin")
-                        }
-
-                        Button(action: {
-                            Haptics.light()
-                            ProjectRepository.shared.toggleArchive(id: project.id)
-                        }) {
-                            Label(project.archived ? "Arşivden Çıkar" : "Arşive Taşı", systemImage: "archivebox")
-                        }
-
-                        Button(action: onShare) {
-                            Label("Paylaş ve Rapor Al", systemImage: "square.and.arrow.up")
-                        }
-
-                        Divider()
-
-                        Button(role: .destructive, action: {
-                            Haptics.heavy()
-                            ProjectRepository.shared.deleteProject(id: project.id)
-                        }) {
-                            Label("Çöp Kutusuna Taşı", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(mutedColor.opacity(0.7))
-                            .frame(width: 26, height: 26)
-                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.scaleSpring(scale: 0.88))
                 }
@@ -1079,33 +1011,29 @@ public struct ProjectCardView: View {
         .shadow(color: isCardDark ? Color.black.opacity(0.35) : Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
         .offset(x: dragOffset)
         .gesture(
-            DragGesture(minimumDistance: 15)
+            DragGesture(minimumDistance: 20)
                 .onChanged { val in
-                    guard abs(val.translation.width) > abs(val.translation.height) else { return }
+                    guard abs(val.translation.width) > abs(val.translation.height) * 1.5 else { return }
                     let trans = val.translation.width
                     if trans > 0 {
-                        dragOffset = min(130, trans)
+                        dragOffset = min(120, trans)
                     } else {
-                        dragOffset = max(-160, trans)
+                        dragOffset = max(-120, trans)
                     }
                 }
                 .onEnded { val in
                     let trans = val.translation.width
-                    if trans > 70 {
-                        Haptics.medium()
-                        ProjectRepository.shared.togglePin(id: project.id)
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                            dragOffset = 0
-                        }
-                    } else if trans < -110 {
+                    if trans > 75 {
                         Haptics.medium()
                         ProjectRepository.shared.toggleArchive(id: project.id)
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                             dragOffset = 0
                         }
-                    } else if trans < -40 {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            dragOffset = -146
+                    } else if trans < -75 {
+                        Haptics.heavy()
+                        ProjectRepository.shared.deleteProject(id: project.id)
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            dragOffset = 0
                         }
                     } else {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {

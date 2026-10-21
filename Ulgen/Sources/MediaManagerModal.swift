@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 public struct MediaManagerModal: View {
     public var projectId: String
@@ -8,6 +9,7 @@ public struct MediaManagerModal: View {
     @ObservedObject var repo = ProjectRepository.shared
     @State private var activeTab: String = "upload" // "existing" or "upload"
     @State private var selectedMediaIds: Set<String> = []
+    @State private var selectedPhotos: [PhotosPickerItem] = []
 
     private var project: Project? {
         repo.projects.first(where: { $0.id == projectId })
@@ -101,31 +103,54 @@ public struct MediaManagerModal: View {
 
                 // Tab Content
                 if activeTab == "upload" {
-                    // Upload Drop Area Card (1:1 Android)
-                    VStack(spacing: 10) {
-                        Image(systemName: "icloud.and.arrow.up.fill")
-                            .font(.system(size: 38))
-                            .foregroundColor(Color(hex: "#A16207"))
+                    // Upload Drop Area Card with PhotosPicker
+                    PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 5, matching: .any(of: [.images, .videos])) {
+                        VStack(spacing: 10) {
+                            Image(systemName: "icloud.and.arrow.up.fill")
+                                .font(.system(size: 38))
+                                .foregroundColor(Color(hex: "#A16207"))
 
-                        Text("Dosyaları Yükle")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(repo.isDarkMode ? Color(hex: "#F5F5F4") : Color(hex: "#2C1810"))
+                            Text("Fotoğraf / Video Seç")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(repo.isDarkMode ? Color(hex: "#F5F5F4") : Color(hex: "#2C1810"))
 
-                        Text("Dosya seçmek için tıklayın")
-                            .font(.system(size: 12))
-                            .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+                            Text("Galeri veya dosyalardan seçmek için dokunun")
+                                .font(.system(size: 12))
+                                .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 150)
+                        .background(repo.isDarkMode ? Color(hex: "#292524") : Color.white)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(
+                                    repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#D6D1C7"),
+                                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                                )
+                        )
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 150)
-                    .background(repo.isDarkMode ? Color(hex: "#292524") : Color.white)
-                    .cornerRadius(12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(
-                                repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#D6D1C7"),
-                                style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-                            )
-                    )
+                    .buttonStyle(.plain)
+                    .onChange(of: selectedPhotos) { newItems in
+                        Task {
+                            for item in newItems {
+                                if let data = try? await item.loadTransferable(type: Data.self) {
+                                    let base64 = data.base64EncodedString()
+                                    let newMedia = MediaItem(
+                                        name: "Medya_\(Int(Date().timeIntervalSince1970)).jpg",
+                                        base64Data: base64
+                                    )
+                                    await MainActor.run {
+                                        repo.attachMedia(projectId: projectId, media: newMedia)
+                                        selectedMediaIds.insert(newMedia.id)
+                                        activeTab = "existing"
+                                        Haptics.success()
+                                    }
+                                }
+                            }
+                            selectedPhotos.removeAll()
+                        }
+                    }
                 } else {
                     // Var Olan Medyalar Listesi
                     VStack(spacing: 8) {
@@ -182,7 +207,7 @@ public struct MediaManagerModal: View {
                     }) {
                         HStack(spacing: 6) {
                             Image(systemName: "paperclip")
-                            Text("İliştir")
+                            Text(selectedMediaIds.isEmpty ? "Tamamla" : "\(selectedMediaIds.count) Medya İliştir")
                         }
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white)

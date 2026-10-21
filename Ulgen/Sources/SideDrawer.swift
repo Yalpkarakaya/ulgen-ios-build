@@ -4,7 +4,9 @@ public struct SideDrawer: View {
     @Binding var isOpen: Bool
     @ObservedObject var repo = ProjectRepository.shared
     @ObservedObject var mqtt = MqttSyncEngine.shared
+    @ObservedObject var drive = GoogleDriveSyncEngine.shared
     @State private var comingSoonFeature: String? = nil
+    @State private var showingGoogleSignIn: Bool = false
 
     var onSelectView: (String) -> Void
 
@@ -38,21 +40,22 @@ public struct SideDrawer: View {
                             }
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(repo.userProfile.displayName.isEmpty ? (mqtt.userEmail.isEmpty ? "Misafir Kullanıcı" : mqtt.userEmail) : repo.userProfile.displayName)
+                                let activeEmail = !drive.userEmail.isEmpty ? drive.userEmail : (!mqtt.userEmail.isEmpty ? mqtt.userEmail : repo.userProfile.email)
+                                Text(repo.userProfile.displayName.isEmpty ? (activeEmail.isEmpty ? "Misafir Kullanıcı" : activeEmail) : repo.userProfile.displayName)
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.white)
 
-                                Text(mqtt.userEmail.isEmpty ? "Giriş Yapılmadı" : mqtt.userEmail)
+                                Text(activeEmail.isEmpty ? "Giriş Yapılmadı" : activeEmail)
                                     .font(.system(size: 12))
                                     .foregroundColor(.white.opacity(0.85))
                                     .lineLimit(1)
 
-                                if !mqtt.userEmail.isEmpty {
+                                if !activeEmail.isEmpty {
                                     HStack(spacing: 4) {
                                         Image(systemName: "checkmark")
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundColor(Color(hex: "#86EFAC"))
-                                        Text("Google Hesabı Bağlı")
+                                        Text("Google & MQTT Aktif")
                                             .font(.system(size: 10, weight: .semibold))
                                             .foregroundColor(Color(hex: "#86EFAC"))
                                     }
@@ -95,13 +98,12 @@ public struct SideDrawer: View {
                             // 1. HESAP & BULUT EŞİTLEME
                             sectionHeader("HESAP & BULUT EŞİTLEME")
 
-                            if mqtt.userEmail.isEmpty {
+                            let activeEmail = !drive.userEmail.isEmpty ? drive.userEmail : (!mqtt.userEmail.isEmpty ? mqtt.userEmail : repo.userProfile.email)
+
+                            if activeEmail.isEmpty {
                                 Button(action: {
                                     Haptics.light()
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        isOpen = false
-                                    }
-                                    onSelectView("profile")
+                                    showingGoogleSignIn = true
                                 }) {
                                     HStack(spacing: 12) {
                                         GoogleGIconView(size: 20)
@@ -140,20 +142,25 @@ public struct SideDrawer: View {
                             drawerActionItem(icon: "icloud.and.arrow.down", title: "Buluttan İndir", subtitle: "Google Drive'daki ana kopyayı cihaza çeker") {
                                 Haptics.light()
                                 Task {
-                                    await repo.syncWithCloud()
+                                    if let remote = try? await drive.fetchMasterBackup() {
+                                        await MainActor.run {
+                                            for p in remote.projects {
+                                                repo.mergeIncomingProject(p)
+                                            }
+                                        }
+                                    } else {
+                                        await repo.syncWithCloud()
+                                    }
                                 }
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                     isOpen = false
                                 }
                             }
 
-                            if !mqtt.userEmail.isEmpty {
+                            if !activeEmail.isEmpty {
                                 drawerActionItem(icon: "rectangle.portrait.and.arrow.right", title: "Güvenli Çıkış Yap", subtitle: "Hesap oturumunu kapat", isDestructive: true) {
                                     Haptics.medium()
-                                    mqtt.disconnect()
-                                    mqtt.userEmail = ""
-                                    repo.userProfile.email = ""
-                                    repo.saveLocalDataDirect()
+                                    drive.signOut()
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                         isOpen = false
                                     }
@@ -281,6 +288,9 @@ public struct SideDrawer: View {
                 .transition(.opacity)
                 .zIndex(100)
             }
+        }
+        .sheet(isPresented: $showingGoogleSignIn) {
+            GoogleSignInModal()
         }
     }
 

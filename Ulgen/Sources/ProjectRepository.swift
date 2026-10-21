@@ -388,9 +388,10 @@ public class ProjectRepository: ObservableObject {
         priority: String,
         startDate: String? = nil,
         deadline: String? = nil,
-        customColors: CustomColorConfig? = nil
+        customColors: CustomColorConfig? = nil,
+        mainTopics: [MainTopic] = []
     ) {
-        let newP = Project(
+        var newP = Project(
             title: title,
             description: description,
             category: category,
@@ -399,7 +400,9 @@ public class ProjectRepository: ObservableObject {
             deadline: deadline,
             customColors: customColors
         )
+        newP.mainTopics = mainTopics
         projects.insert(newP, at: 0)
+        recalculateProgress(projectId: newP.id)
         saveLocalData(modifiedProjectId: newP.id)
     }
 
@@ -591,6 +594,20 @@ public class ProjectRepository: ObservableObject {
     public func deleteNote(projectId: String, noteId: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
         projects[pIdx].notes.removeAll { $0.id == noteId }
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        saveLocalData(modifiedProjectId: projectId)
+    }
+
+    public func attachMedia(projectId: String, media: MediaItem) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        projects[pIdx].media.append(media)
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        saveLocalData(modifiedProjectId: projectId)
+    }
+
+    public func removeMedia(projectId: String, mediaId: String) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        projects[pIdx].media.removeAll { $0.id == mediaId }
         projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
         saveLocalData(modifiedProjectId: projectId)
     }
