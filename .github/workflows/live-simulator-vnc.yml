@@ -66,15 +66,35 @@ jobs:
           sudo dscl . -passwd /Users/$CURRENT_USER "ulgen123" || true
           sudo dscl . -passwd /Users/runner "ulgen123" || true
           
+          # Enable screensharing launch daemon (Required for macOS 14 Sonoma)
+          sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist || true
+          sudo launchctl enable system/com.apple.screensharing || true
+
           # Enable legacy VNC password and full remote access for all users
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on \
             -allowAccessFor -allUsers -privs -all \
             -clientopts -setvnclegacy -vnclegacy yes \
             -clientopts -setvncpw -vncpw "ulgen123" \
-            -restart -agent
-          sleep 2
-          nc -zv 127.0.0.1 5900 || echo "Port 5900 check done"
+            -restart -agent -console
+
+          # Verify port 5900 is listening
+          echo "Waiting for port 5900 to listen..."
+          PORT_OPEN=0
+          for i in {1..20}; do
+            if nc -zv 127.0.0.1 5900 2>&1 | grep -q -E "succeeded|open"; then
+              echo "Port 5900 is listening and verified!"
+              PORT_OPEN=1
+              break
+            fi
+            sleep 1
+          done
+          
+          if [ $PORT_OPEN -eq 0 ]; then
+            echo "Port 5900 check details:"
+            sudo lsof -i :5900 || true
+            sudo netstat -an | grep 5900 || true
+          fi
 
       - name: Install and Start noVNC Proxy
         run: |
@@ -98,8 +118,8 @@ jobs:
           console.log("noVNC rfb.js successfully patched!");
           '
           
-          # Launch novnc_proxy binding explicitly to 127.0.0.1:6080
-          nohup /tmp/novnc/utils/novnc_proxy --vnc 127.0.0.1:5900 --listen 127.0.0.1:6080 > /tmp/novnc.log 2>&1 &
+          # Launch novnc_proxy binding explicitly to 127.0.0.1:6080 with 30s heartbeat
+          nohup /tmp/novnc/utils/novnc_proxy --vnc 127.0.0.1:5900 --listen 127.0.0.1:6080 --heartbeat 30 > /tmp/novnc.log 2>&1 &
           
           # Verify local HTTP response
           for i in {1..15}; do
@@ -119,7 +139,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          nohup cloudflared tunnel --url http://127.0.0.1:6080 > /tmp/cloudflared.log 2>&1 &
+          nohup cloudflared tunnel --url http://127.0.0.1:6080 --no-chunked-encoding > /tmp/cloudflared.log 2>&1 &
           
           echo "Waiting for Cloudflare Tunnel URL..."
           TUNNEL_URL=""
