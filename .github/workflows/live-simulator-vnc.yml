@@ -63,8 +63,9 @@ jobs:
           echo "Setting macOS runner user password and activating ARD VNC Server..."
           CURRENT_USER=$(id -un)
           echo "Target user: $CURRENT_USER"
-          sudo dscl . -passwd /Users/$CURRENT_USER "ulgen123" || true
-          sudo dscl . -passwd /Users/runner "ulgen123" || true
+          echo -e "ulgen123\nulgen123" | sudo passwd $CURRENT_USER || true
+          echo -e "ulgen123\nulgen123" | sudo passwd runner || true
+          sudo dscl . -passwd /Users/runner "" "ulgen123" || true
           
           # Enable screensharing launch daemon (Required for macOS 14 Sonoma)
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist || true
@@ -98,11 +99,11 @@ jobs:
 
       - name: Install and Start ARD Web Proxy (noVNC-ARD)
         run: |
-          pip3 install websockify
+          git clone --depth 1 https://github.com/novnc/websockify.git /tmp/websockify
           git clone --recurse-submodules https://github.com/peetinc/noVNC-ARD.git /tmp/novnc-ard
           
           # Launch websockify binding explicitly to 127.0.0.1:6080 with 30s heartbeat
-          nohup python3 -m websockify --web /tmp/novnc-ard 127.0.0.1:6080 127.0.0.1:5900 --heartbeat 30 > /tmp/novnc.log 2>&1 &
+          nohup /tmp/websockify/run --web /tmp/novnc-ard 127.0.0.1:6080 127.0.0.1:5900 --heartbeat 30 > /tmp/novnc.log 2>&1 &
           
           # Verify local HTTP response
           for i in {1..15}; do
