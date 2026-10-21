@@ -614,6 +614,13 @@ public class ProjectRepository: ObservableObject {
         }
     }
 
+    public func addChatSession(projectId: String, session: ChatSession) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        projects[pIdx].chatSessions.insert(session, at: 0)
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        saveLocalData(modifiedProjectId: projectId)
+    }
+
     public func addChatMessage(projectId: String, role: String, content: String) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return }
         let newMsg = ChatMessage(role: role, content: content)
