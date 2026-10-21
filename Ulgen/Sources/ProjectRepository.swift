@@ -543,6 +543,21 @@ public class ProjectRepository: ObservableObject {
         saveLocalData(modifiedProjectId: projectId)
     }
 
+    public func toggleSubTopic(projectId: String, mainTopicId: String, subTopicId: String) {
+        guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
+              let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == mainTopicId }),
+              let sIdx = projects[pIdx].mainTopics[tIdx].subTopics.firstIndex(where: { $0.id == subTopicId }) else { return }
+
+        let allDone = projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.allSatisfy { $0.completed }
+        let newStatus = !allDone
+        for i in 0..<projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items.count {
+            projects[pIdx].mainTopics[tIdx].subTopics[sIdx].items[i].completed = newStatus
+        }
+        projects[pIdx].lastUpdated = Int64(Date().timeIntervalSince1970 * 1000)
+        recalculateProgress(projectId: projectId)
+        saveLocalData(modifiedProjectId: projectId)
+    }
+
     public func updateItemQuantity(projectId: String, topicId: String, subTopicId: String, itemId: String, delta: Int) {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }),
               let tIdx = projects[pIdx].mainTopics.firstIndex(where: { $0.id == topicId }),
