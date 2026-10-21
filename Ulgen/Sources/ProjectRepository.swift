@@ -138,45 +138,101 @@ public class ProjectRepository: ObservableObject {
            let loaded = try? JSONDecoder().decode([Project].self, from: data), !loaded.isEmpty {
             self.projects = loaded
         } else {
-            // Default sample projects
+            // Default sample projects (1:1 Ground Truth matching Android ProjectFileStore.kt createSampleProjects())
             self.projects = [
                 Project(
-                    id: "ford-gt",
-                    title: "Ford GT",
-                    description: "1/10 - 1/12 karması boyutta RC araba tasarımı. 3D tasarımı ve baskısı; haberleşme, kontrol ve güç sistemlerinin tasarımı özgün olacak şekilde tasarlanmıştır.",
-                    category: "hobi",
+                    id: "p-kotlin-compose",
+                    title: "Kotlin & Jetpack Compose ile Android Geliştirme",
+                    description: "Modern deklaratif UI mimarisi ve saf Kotlin ile uçtan uca native mobil uygulama geliştirme süreci.",
+                    category: "Yazılım",
                     priority: "high",
-                    startDate: "2026-06-23",
-                    deadline: nil,
-                    progress: 9,
+                    startDate: "2026-10-21",
+                    deadline: "2026-12-31",
+                    progress: 62,
                     mainTopics: [
                         MainTopic(
-                            id: "t1-ford",
-                            title: "1. Dış genel tasarım",
-                            description: "3D gövde ve aerodinamik kalıp çalışmaları",
+                            id: "t1-kotlin",
+                            title: "1. Temel Kotlin ve Modern Android Mimarisi",
+                            description: "Coroutines, Flow, MVVM ve State yönetimi prensipleri.",
                             subTopics: [
                                 SubTopic(
                                     id: "st1-1",
-                                    title: "Üst kalıp",
+                                    title: "Kotlin Coroutines & Asenkron Programlama",
+                                    completed: true,
+                                    items: [
+                                        Item(id: "i1-1", title: "Dispatcher ve Scope yönetimi", completed: true, quantity: 1),
+                                        Item(id: "i1-2", title: "StateFlow ve SharedFlow kullanımı", completed: true, quantity: 1)
+                                    ],
+                                    notes: [Note(content: "StateFlow, UI state'lerini saklamak ve gözlemlemek için en iyi pratiktir.")],
+                                    links: [LinkItem(title: "Resmi Kotlin Coroutines Kılavuzu", url: "https://kotlinlang.org/docs/coroutines-overview.html")]
+                                ),
+                                SubTopic(
+                                    id: "st1-2",
+                                    title: "Jetpack Compose Deklaratif UI Temelleri",
+                                    completed: true,
+                                    items: [
+                                        Item(id: "i1-3", title: "Composable fonksiyonlar ve Modifier zincirleri", completed: true, quantity: 1),
+                                        Item(id: "i1-4", title: "State Hoisting ve Unidirectional Data Flow", completed: true, quantity: 1)
+                                    ]
+                                )
+                            ]
+                        ),
+                        MainTopic(
+                            id: "t2-data",
+                            title: "2. Veri Yönetimi ve Yerel Depolama",
+                            description: "DataStore, Room ve Dosya Tabanlı JSON depolama.",
+                            subTopics: [
+                                SubTopic(
+                                    id: "st2-1",
+                                    title: "Preferences & Proto DataStore",
                                     completed: false,
                                     items: [
-                                        Item(id: "i1-1", title: "3D modellemesi", completed: false, quantity: 1),
-                                        Item(id: "i1-2", title: "Baskı alınması", completed: false, quantity: 1),
-                                        Item(id: "i1-3", title: "Zımpara ve astar boya", completed: false, quantity: 1),
-                                        Item(id: "i1-4", title: "Ön tampon birleşimi", completed: false, quantity: 1)
+                                        Item(id: "i2-1", title: "Kullanıcı ayarlarının asenkron saklanması", completed: false, quantity: 1),
+                                        Item(id: "i2-2", title: "Karanlık/Aydınlık mod persistansı", completed: true, quantity: 1)
+                                    ]
+                                ),
+                                SubTopic(
+                                    id: "st2-2",
+                                    title: "Gist / Bulut Yedekleme Entegrasyonu",
+                                    completed: false,
+                                    items: [
+                                        Item(id: "i2-3", title: "GitHub Gist REST API entegrasyonu", completed: false, quantity: 1),
+                                        Item(id: "i2-4", title: "Otomatik çift yönlü senkronizasyon", completed: false, quantity: 1)
                                     ]
                                 )
                             ]
                         )
                     ],
-                    customColors: CustomColorConfig(
-                        cardBg: "#000000",
-                        border: "#FACC15",
-                        borderColor: "#FACC15",
-                        progressBar: "#84CC16",
-                        textColor: "#FACC15"
-                    ),
                     pinned: true
+                ),
+                Project(
+                    id: "p-ai-deep-learning",
+                    title: "Yapay Zeka & Derin Öğrenme Çalışmaları",
+                    description: "Modern transformer mimarileri ve makine öğrenimi modelleri üzerine araştırma ve uygulama planı.",
+                    category: "Ders",
+                    priority: "medium",
+                    startDate: "2026-10-21",
+                    deadline: "2026-10-15",
+                    progress: 0,
+                    mainTopics: [
+                        MainTopic(
+                            id: "t1-ai",
+                            title: "1. Matematiksel Temeller & Python Kütüphaneleri",
+                            description: "Lineer cebir, olasılık ve PyTorch temelleri.",
+                            subTopics: [
+                                SubTopic(
+                                    id: "st-ai-1",
+                                    title: "PyTorch Tensor İşlemleri & Autograd",
+                                    completed: false,
+                                    items: [
+                                        Item(id: "i-ai-1", title: "Tensor manipülasyonları ve GPU kullanımı", completed: false, quantity: 1),
+                                        Item(id: "i-ai-2", title: "Geriye yayılım (Backpropagation) hesapları", completed: false, quantity: 1)
+                                    ]
+                                )
+                            ]
+                        )
+                    ],
+                    pinned: false
                 )
             ]
             saveLocalDataDirect()

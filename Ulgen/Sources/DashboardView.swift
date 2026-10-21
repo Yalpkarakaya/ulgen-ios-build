@@ -123,6 +123,19 @@ public struct DashboardView: View {
                                 }
                             }
 
+                            // 1:1 Android Alt Arşiv Bilgi İndikatörü (DashboardScreen.kt satır 1395-1403)
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.up")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                                Text("Arşivi görmek için yukarı kaydırın")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 16)
+                            .padding(.bottom, 4)
+
                             // 1:1 Android Alt Arşiv Çekme Euler Sıvı Damlası (ArchivePullDroplet.kt paritesi - SIFIR METİN / SIFIR KUTU)
                             ArchivePullDropletView(
                                 pullProgress: min(1.0, max(0.0, archivePullOffset / 75.0)),
@@ -130,7 +143,7 @@ public struct DashboardView: View {
                                 isDarkMode: repo.isDarkMode
                             )
                             .frame(maxWidth: .infinity)
-                            .padding(.top, 14)
+                            .padding(.top, 4)
                             .padding(.bottom, 8)
                         }
                         .padding(.horizontal, 16)

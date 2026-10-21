@@ -12,9 +12,9 @@ public struct AppTheme {
     public static let primaryLightTint = Color(hex: "#CCFBF1")    // Theme100
     public static let primarySoftBg = Color(hex: "#F0FDFA")      // Theme50
 
-    // Header Brand Colors (Android DashboardHeader ulgenTitleColor: Bronze #8A4B1A in light, Amber #D97706 in dark)
-    public static let headerTitleLight = Color(hex: "#8A4B1A")
-    public static let headerTitleDark = Color(hex: "#D97706")
+    // Header Brand Colors (Android DashboardHeader ulgenTitleColor: Turkuaz #0D9488 in light, Teal/Cyan #2DD4BF in dark matching Android SYSTEM_PALETTES[0])
+    public static let headerTitleLight = Color(hex: "#0D9488")
+    public static let headerTitleDark = Color(hex: "#2DD4BF")
     public static func primaryHeader(isDark: Bool) -> Color {
         isDark ? headerTitleDark : headerTitleLight
     }
