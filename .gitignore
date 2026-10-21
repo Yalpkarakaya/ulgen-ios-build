@@ -1,0 +1,7 @@
+node_modules/
+package-lock.json
+*.py
+build_sim/
+build_sim_ipa/
+DerivedData/
+*.xcresult

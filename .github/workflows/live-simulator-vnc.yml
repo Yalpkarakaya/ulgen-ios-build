@@ -106,17 +106,14 @@ jobs:
 
       - name: Install and Start ARD Web Proxy (noVNC-ARD)
         run: |
-          git clone --depth 1 https://github.com/novnc/websockify.git /tmp/websockify
+          npm install ws
           git clone --recurse-submodules https://github.com/peetinc/noVNC-ARD.git /tmp/novnc-ard
           
           # Bundle all 40 modular JS files into a single instant app-bundle.js
           node tools/bundle-ard.js /tmp/novnc-ard
           
-          # Launch websockify dedicated solely to WebSockets on port 6081
-          nohup /tmp/websockify/run 127.0.0.1:6081 127.0.0.1:5900 --heartbeat 30 > /tmp/websockify.log 2>&1 &
-          
-          # Launch ultra-fast Node.js static server + WS proxy on port 6080
-          nohup node tools/web-server.js /tmp/novnc-ard 6080 6081 > /tmp/webserver.log 2>&1 &
+          # Launch integrated Node.js HTTP + WebSocket server bridging directly to Screen Sharing port 5900
+          nohup node tools/web-server.js /tmp/novnc-ard 6080 5900 > /tmp/webserver.log 2>&1 &
           
           # Verify local HTTP response
           for i in {1..15}; do
@@ -132,14 +129,17 @@ jobs:
         run: |
           brew install cloudflare/cloudflare/cloudflared
 
-      - name: Expose Web Tunnels (Cloudflare + Localtunnel)
+      - name: Expose Web Tunnels (Cloudflare + Pinggy + Localtunnel)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Start Cloudflare Tunnel
           nohup cloudflared tunnel --url http://127.0.0.1:6080 --no-chunked-encoding > /tmp/cloudflared.log 2>&1 &
           
-          # Start Localtunnel in parallel as a secondary direct tunnel
+          # Start Pinggy Tunnel (SSH HTTPS tunnel with WebSocket support)
+          nohup ssh -p 443 -R0:localhost:6080 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 a.pinggy.io > /tmp/pinggy.log 2>&1 &
+
+          # Start Localtunnel in parallel as an additional tunnel
           nohup npx -y localtunnel --port 6080 > /tmp/localtunnel.log 2>&1 &
           
           echo "Waiting for Tunnel URLs..."
@@ -152,6 +152,15 @@ jobs:
             fi
           done
 
+          PINGGY_URL=""
+          for i in {1..15}; do
+            PINGGY_URL=$(grep -o 'https://[-0-9a-z]*\.free\.pinggy\.link' /tmp/pinggy.log | head -n 1 || true)
+            if [ -n "$PINGGY_URL" ]; then
+              break
+            fi
+            sleep 1
+          done
+
           LOCAL_URL=""
           for i in {1..15}; do
             LOCAL_URL=$(grep -o 'https://[-0-9a-z]*\.loca\.lt' /tmp/localtunnel.log | head -n 1 || true)
@@ -161,21 +170,30 @@ jobs:
             sleep 1
           done
 
-          CLOUDFLARE_LINK="${TUNNEL_URL}/ard.html?autoconnect=true&username=ulgen&password=ulgen123&ardSessionType=share&resize=scale&reconnect=true"
-          LOCALTUNNEL_LINK="${LOCAL_URL}/ard.html?autoconnect=true&username=ulgen&password=ulgen123&ardSessionType=share&resize=scale&reconnect=true"
+          CLOUDFLARE_LINK="${TUNNEL_URL}/ard.html?autoconnect=true&username=ulgen&password=ulgen123&ardSessionType=share&resize=scale"
+          PINGGY_LINK="${PINGGY_URL}/ard.html?autoconnect=true&username=ulgen&password=ulgen123&ardSessionType=share&resize=scale"
+          LOCALTUNNEL_LINK="${LOCAL_URL}/ard.html?autoconnect=true&username=ulgen&password=ulgen123&ardSessionType=share&resize=scale"
           
           echo "LIVE_URL=$CLOUDFLARE_LINK" >> $GITHUB_ENV
 
           echo "================================================================="
-          echo "🌐 CLOUDFLARE LINK: $CLOUDFLARE_LINK"
-          echo "🚀 LOCALTUNNEL LINK: $LOCALTUNNEL_LINK"
+          echo "🌐 CLOUDFLARE: $CLOUDFLARE_LINK"
+          if [ -n "$PINGGY_URL" ]; then
+            echo "⚡ PINGGY: $PINGGY_LINK"
+          fi
+          if [ -n "$LOCAL_URL" ]; then
+            echo "🚀 LOCALTUNNEL: $LOCALTUNNEL_LINK"
+          fi
           echo "================================================================="
 
           # Write to Step Summary
           echo "## 📱 Canlı Sanal iPhone Web Erişim Linkleri" >> $GITHUB_STEP_SUMMARY
           echo "1. **[Cloudflare Bağlantısı]($CLOUDFLARE_LINK)**" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$PINGGY_URL" ]; then
+            echo "2. **[Pinggy Doğrudan Bağlantı]($PINGGY_LINK)**" >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -n "$LOCAL_URL" ]; then
-            echo "2. **[Alternatif Doğrudan Bağlantı (Localtunnel)]($LOCALTUNNEL_LINK)**" >> $GITHUB_STEP_SUMMARY
+            echo "3. **[Alternatif Bağlantı (Localtunnel)]($LOCALTUNNEL_LINK)**" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Kullanıcı:** \`ulgen\`" >> $GITHUB_STEP_SUMMARY
@@ -185,6 +203,7 @@ jobs:
           # Save URL to release
           cat << EOF > live_session_url.txt
           Cloudflare: $CLOUDFLARE_LINK
+          Pinggy: $PINGGY_LINK
           Localtunnel: $LOCALTUNNEL_LINK
           EOF
           gh release delete live-session --yes --cleanup-tag || gh release delete live-session --yes || true

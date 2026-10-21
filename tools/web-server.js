@@ -2,10 +2,11 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
+const WebSocket = require('ws');
 
 const WEB_ROOT = process.argv[2] || '/tmp/novnc-ard';
 const LISTEN_PORT = parseInt(process.argv[3] || '6080', 10);
-const WS_TARGET_PORT = parseInt(process.argv[4] || '6081', 10);
+const TCP_TARGET_PORT = parseInt(process.argv[4] || '5900', 10);
 
 const MIMES = {
   '.html': 'text/html; charset=utf-8',
@@ -44,33 +45,55 @@ const server = http.createServer((req, res) => {
   });
 });
 
+const wss = new WebSocket.Server({ noServer: true });
+
+wss.on('connection', (ws, req) => {
+  console.log(`[WS] Client connected from ${req.socket.remoteAddress}, bridging to TCP 127.0.0.1:${TCP_TARGET_PORT}...`);
+  
+  const tcpSocket = net.connect(TCP_TARGET_PORT, '127.0.0.1', () => {
+    console.log(`[WS] TCP bridge established to port ${TCP_TARGET_PORT}`);
+  });
+
+  tcpSocket.on('data', (data) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(data, { binary: true });
+    }
+  });
+
+  ws.on('message', (message) => {
+    if (tcpSocket.writable) {
+      tcpSocket.write(message);
+    }
+  });
+
+  tcpSocket.on('error', (err) => {
+    console.error(`[TCP Error] ${err.message}`);
+    if (ws.readyState === WebSocket.OPEN) ws.close();
+  });
+
+  ws.on('error', (err) => {
+    console.error(`[WS Error] ${err.message}`);
+    tcpSocket.destroy();
+  });
+
+  tcpSocket.on('close', () => {
+    console.log('[TCP] Socket closed');
+    if (ws.readyState === WebSocket.OPEN) ws.close();
+  });
+
+  ws.on('close', () => {
+    console.log('[WS] Client disconnected');
+    tcpSocket.destroy();
+  });
+});
+
 server.on('upgrade', (req, socket, head) => {
-  console.log(`[WS] Upgrading: ${req.url}`);
-  const proxySocket = net.connect(WS_TARGET_PORT, '127.0.0.1', () => {
-    let headerStr = `${req.method} ${req.url} HTTP/1.1\r\n`;
-    for (const [k, v] of Object.entries(req.headers)) {
-      headerStr += `${k}: ${v}\r\n`;
-    }
-    headerStr += '\r\n';
-    proxySocket.write(headerStr);
-    if (head && head.length > 0) {
-      proxySocket.write(head);
-    }
-    socket.pipe(proxySocket);
-    proxySocket.pipe(socket);
-  });
-
-  proxySocket.on('error', (err) => {
-    console.error('[WS Proxy Error]', err.message);
-    socket.destroy();
-  });
-
-  socket.on('error', (err) => {
-    console.error('[Client Socket Error]', err.message);
-    proxySocket.destroy();
+  console.log(`[HTTP Upgrade] ${req.method} ${req.url}`);
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
   });
 });
 
 server.listen(LISTEN_PORT, '127.0.0.1', () => {
-  console.log(`Ultra-fast Node server listening on 127.0.0.1:${LISTEN_PORT}, WS proxying to ${WS_TARGET_PORT}`);
+  console.log(`Integrated HTTP + WebSocket-to-TCP server running on 127.0.0.1:${LISTEN_PORT} -> TCP :${TCP_TARGET_PORT}`);
 });
