@@ -683,39 +683,6 @@ public struct DashboardView: View {
         }
         .buttonStyle(.scaleSpring(scale: 0.96))
     }
-                HStack(alignment: .bottom, spacing: 2) {
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(1 <= bars ? pColor : Color.gray.opacity(0.3))
-                        .frame(width: 2.5, height: 5.5)
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(2 <= bars ? pColor : Color.gray.opacity(0.3))
-                        .frame(width: 2.5, height: 8.0)
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(3 <= bars ? pColor : Color.gray.opacity(0.3))
-                        .frame(width: 2.5, height: 10.5)
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(4 <= bars ? pColor : Color.gray.opacity(0.3))
-                        .frame(width: 2.5, height: 13.0)
-                }
-                .frame(width: 14, height: 13, alignment: .bottom)
-
-                Text(prio.label)
-                    .font(.system(size: isDual ? 10.5 : 11.5, weight: isSel ? .bold : .medium))
-                    .foregroundColor(isSel ? (repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B")) : AppTheme.textBody(isDark: repo.isDarkMode))
-                    .lineLimit(1)
-                Spacer()
-            }
-            .padding(.horizontal, 6)
-            .frame(height: 28)
-            .background(isSel ? pColor.opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
-            .cornerRadius(7)
-            .overlay(
-                RoundedRectangle(cornerRadius: 7)
-                    .stroke(isSel ? pColor : (repo.isDarkMode ? Color(hex: "#383A42") : Color(hex: "#D5D0C5")), lineWidth: isSel ? 1.5 : 1)
-            )
-        }
-        .buttonStyle(.scaleSpring(scale: 0.96))
-    }
 
     private func categoryIconName(_ id: String) -> String {
         switch id {

@@ -238,12 +238,10 @@ public struct MChatView: View {
     }
 
     private func sendMessage() {
-        guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let p = project,
-              let sId = activeSessionId else { return }
+        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, let p = project else { return }
 
-        let userMsg = ChatMessage(role: "user", text: inputText)
         inputText = ""
-        repo.addChatMessage(projectId: p.id, sessionId: sId, message: userMsg)
+        repo.addChatMessage(projectId: p.id, role: "user", content: text)
     }
 }
