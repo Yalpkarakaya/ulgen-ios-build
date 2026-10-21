@@ -26,6 +26,15 @@ public struct DetailView: View {
         repo.projects.first(where: { $0.id == projectId })
     }
 
+    public init(projectId: String, initialModal: String = "") {
+        self.projectId = projectId
+        if initialModal == "media" {
+            _showingMediaManager = State(initialValue: true)
+        } else if initialModal == "mchat" {
+            _showingMChat = State(initialValue: true)
+        }
+    }
+
     public var body: some View {
         Group {
             if let p = project {

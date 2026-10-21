@@ -40,7 +40,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Boot Modern Virtual iPhone (19.5:9 Aspect Ratio) and Capture Screenshot
+      - name: Boot Modern Virtual iPhone (19.5:9 Aspect Ratio) and Capture Screenshots
         run: |
           DEVICE_ID=$(xcrun simctl list devices available | grep -E "iPhone 15 Pro|iPhone 15|iPhone 16" | head -n 1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
           if [ -z "$DEVICE_ID" ]; then
@@ -52,11 +52,68 @@ jobs:
           sleep 4
           xcrun simctl ui "$DEVICE_ID" appearance light
           xcrun simctl install "$DEVICE_ID" build_sim/Build/Products/Release-iphonesimulator/Ulgen.app
-          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen
-          sleep 6
-          xcrun simctl io "$DEVICE_ID" screenshot screenshot_iphone.png
-          ls -lh screenshot_iphone.png
-          echo "Modern Virtual iPhone screenshot captured successfully!"
+          
+          mkdir -p screenshots_ios
+          
+          echo "Capturing Screen 1: Dashboard"
+          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen -screen dashboard
+          sleep 5
+          xcrun simctl io "$DEVICE_ID" screenshot screenshots_ios/ios_01_dashboard.png
+          xcrun simctl terminate "$DEVICE_ID" com.yalp.ulgen || true
+          sleep 1
+
+          echo "Capturing Screen 2: Side Drawer"
+          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen -screen drawer
+          sleep 3
+          xcrun simctl io "$DEVICE_ID" screenshot screenshots_ios/ios_02_drawer.png
+          xcrun simctl terminate "$DEVICE_ID" com.yalp.ulgen || true
+          sleep 1
+
+          echo "Capturing Screen 3: Sort Accordion"
+          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen -screen sort
+          sleep 3
+          xcrun simctl io "$DEVICE_ID" screenshot screenshots_ios/ios_03_sort.png
+          xcrun simctl terminate "$DEVICE_ID" com.yalp.ulgen || true
+          sleep 1
+
+          echo "Capturing Screen 4: Dual Zipper Accordion"
+          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen -screen dual_zipper
+          sleep 3
+          xcrun simctl io "$DEVICE_ID" screenshot screenshots_ios/ios_04_dual_zipper.png
+          xcrun simctl terminate "$DEVICE_ID" com.yalp.ulgen || true
+          sleep 1
+
+          echo "Capturing Screen 5: Detail View"
+          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen -screen detail
+          sleep 4
+          xcrun simctl io "$DEVICE_ID" screenshot screenshots_ios/ios_05_detail.png
+          xcrun simctl terminate "$DEVICE_ID" com.yalp.ulgen || true
+          sleep 1
+
+          echo "Capturing Screen 6: Media Manager Modal"
+          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen -screen media
+          sleep 3
+          xcrun simctl io "$DEVICE_ID" screenshot screenshots_ios/ios_06_media.png
+          xcrun simctl terminate "$DEVICE_ID" com.yalp.ulgen || true
+          sleep 1
+
+          echo "Capturing Screen 7: MChat AI Modal"
+          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen -screen mchat
+          sleep 3
+          xcrun simctl io "$DEVICE_ID" screenshot screenshots_ios/ios_07_mchat.png
+          xcrun simctl terminate "$DEVICE_ID" com.yalp.ulgen || true
+          sleep 1
+
+          echo "Capturing Screen 8: Coming Soon Modal"
+          xcrun simctl launch "$DEVICE_ID" com.yalp.ulgen -screen coming_soon
+          sleep 3
+          xcrun simctl io "$DEVICE_ID" screenshot screenshots_ios/ios_08_coming_soon.png
+          xcrun simctl terminate "$DEVICE_ID" com.yalp.ulgen || true
+
+          cp screenshots_ios/ios_01_dashboard.png screenshot_iphone.png
+          cd screenshots_ios && zip -r ../all_ios_screenshots.zip *.png && cd ..
+          ls -lh screenshots_ios/
+          echo "All 8 Virtual iPhone screenshots captured successfully!"
 
       - name: Build for ARM64 iOS Device
         run: |
@@ -91,13 +148,15 @@ jobs:
             Ulgen.ipa
             Ulgen-Simulator.zip
             screenshot_iphone.png
+            all_ios_screenshots.zip
+            screenshots_ios/*.png
 
       - name: Create or Update Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete v1.3.3 --yes || true
-          gh release create v1.3.3 Ulgen.ipa Ulgen-Simulator.zip screenshot_iphone.png \
+          gh release create v1.3.3 Ulgen.ipa Ulgen-Simulator.zip screenshot_iphone.png all_ios_screenshots.zip \
             --title "Ülgen iOS v1.3.3 (1:1 Android Parity, Real MQTT 3.1.1 Sync, Dual Accordion, Generic Profile)" \
             --notes "1:1 Android Kotlin/Compose Tam Parite Paketi:
             - Dual Accordion Paritesi: Sıralama Ölçütü ve Filtreler akordeonu Android DashboardScreen.kt ile 1:1 çift sütunlu fermuar yerleşimine kavuşturuldu, iki panel aynı anda açıldığında yan yana (50/50) konumlanıyor.

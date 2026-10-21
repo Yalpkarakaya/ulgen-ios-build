@@ -52,6 +52,19 @@ public struct DashboardView: View {
         ("urgent", "Acil")
     ]
 
+    public init(initialScreen: String = "") {
+        if initialScreen == "sort" {
+            _showSortPanel = State(initialValue: true)
+        } else if initialScreen == "dual_zipper" {
+            _showSortPanel = State(initialValue: true)
+            _showFilterPanel = State(initialValue: true)
+        } else if initialScreen == "drawer" {
+            _isDrawerOpen = State(initialValue: true)
+        } else if initialScreen == "detail" {
+            _selectedProjectId = State(initialValue: "p-kotlin-compose")
+        }
+    }
+
     public var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
