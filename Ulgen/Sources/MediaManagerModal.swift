@@ -2,13 +2,12 @@ import SwiftUI
 
 public struct MediaManagerModal: View {
     public var projectId: String
+    public var targetTitle: String = "1. Temel Kotlin ve Modern Android Mimarisi"
+    public var onDismiss: () -> Void = {}
+    
     @ObservedObject var repo = ProjectRepository.shared
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var showingAddLink = false
-    @State private var linkTitle: String = ""
-    @State private var linkUrl: String = ""
-    @State private var selectedMedia: MediaItem? = nil
+    @State private var activeTab: String = "upload" // "existing" or "upload"
+    @State private var selectedMediaIds: Set<String> = []
 
     private var project: Project? {
         repo.projects.first(where: { $0.id == projectId })
@@ -18,139 +17,207 @@ public struct MediaManagerModal: View {
         project?.media ?? []
     }
 
-    public var body: some View {
-        NavigationStack {
-            ZStack {
-                AppTheme.bg(isDark: repo.isDarkMode).ignoresSafeArea()
-
-                if mediaList.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "paperclip")
-                            .font(.system(size: 40))
-                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-                        Text("Medya veya Dosya Yok")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
-                        Text("Devre şeması, PDF dokümanları veya bağlantılar ekleyebilirsiniz.")
-                            .font(.system(size: 13))
-                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-
-                        Button(action: { showingAddLink = true }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "link.badge.plus")
-                                Text("Bağlantı / Doküman Ekle")
-                            }
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(AppTheme.primary)
-                            .cornerRadius(10)
-                        }
-                        .padding(.top, 8)
-                    }
-                    .padding(24)
-                } else {
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                            ForEach(mediaList) { item in
-                                mediaCard(item)
-                            }
-                        }
-                        .padding(16)
-                    }
-                }
-            }
-            .navigationTitle("Medyalar ve Çizimler")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Kapat") { dismiss() }
-                        .foregroundColor(AppTheme.primary)
-                        .buttonStyle(.scaleSpring(scale: 0.92))
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(action: { showingAddLink = true }) {
-                        Image(systemName: "plus")
-                    }
-                    .foregroundColor(AppTheme.primary)
-                    .buttonStyle(.scaleSpring(scale: 0.88))
-                }
-            }
-            .sheet(isPresented: $showingAddLink) {
-                NavigationStack {
-                    ZStack {
-                        AppTheme.bg(isDark: repo.isDarkMode).ignoresSafeArea()
-                        VStack(spacing: 16) {
-                            TextField("Başlık (Örn: Altium Şematik PDF)", text: $linkTitle)
-                                .font(.system(size: 15))
-                                .padding(12)
-                                .background(AppTheme.card(isDark: repo.isDarkMode))
-                                .cornerRadius(10)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
-
-                            TextField("URL veya Dosya Yolu", text: $linkUrl)
-                                .font(.system(size: 15))
-                                .padding(12)
-                                .background(AppTheme.card(isDark: repo.isDarkMode))
-                                .cornerRadius(10)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
-
-                            Spacer()
-                        }
-                        .padding(20)
-                    }
-                    .navigationTitle("Yeni Medya / Bağlantı")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("İptal") { showingAddLink = false }
-                                .buttonStyle(.scaleSpring(scale: 0.92))
-                        }
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Ekle") {
-                                guard let pIdx = repo.projects.firstIndex(where: { $0.id == projectId }),
-                                      !linkTitle.isEmpty else { return }
-                                let newMedia = MediaItem(
-                                    uri: linkUrl,
-                                    mimeType: "application/pdf",
-                                    name: linkTitle
-                                )
-                                repo.projects[pIdx].media.append(newMedia)
-                                repo.saveLocalData()
-                                showingAddLink = false
-                            }
-                            .disabled(linkTitle.isEmpty)
-                            .buttonStyle(.scaleSpring(scale: 0.92))
-                        }
-                    }
-                }
-            }
-        }
+    public init(projectId: String, targetTitle: String = "1. Temel Kotlin ve Modern Android Mimarisi", onDismiss: @escaping () -> Void = {}) {
+        self.projectId = projectId
+        self.targetTitle = targetTitle
+        self.onDismiss = onDismiss
     }
 
-    private func mediaCard(_ item: MediaItem) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(repo.isDarkMode ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
-                    .frame(height: 100)
+    public var body: some View {
+        ZStack {
+            // Dark Scrim Backdrop
+            Color.black.opacity(0.65)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onDismiss()
+                }
 
-                Image(systemName: item.mimeType.contains("image") ? "photo" : (item.mimeType.contains("video") ? "video" : "doc.text"))
-                    .font(.system(size: 32))
-                    .foregroundColor(AppTheme.primary)
+            // Centered Modal Dialog Card (1:1 Android AttachMediaModal)
+            VStack(alignment: .leading, spacing: 14) {
+                // Header Row
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(Color(hex: "#A16207"))
+                        .padding(.top, 2)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Medya İliştir")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(repo.isDarkMode ? Color(hex: "#F5F5F4") : Color(hex: "#2C1810"))
+
+                        Text("Ana Konu: \(targetTitle)")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+                            .frame(width: 28, height: 28)
+                            .background(repo.isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.90))
+                }
+
+                // 2-Segment Tab Bar (Var Olan Medyalar / Yeni Yükle)
+                HStack(spacing: 0) {
+                    Button(action: {
+                        Haptics.light()
+                        activeTab = "existing"
+                    }) {
+                        Text("Var Olan Medyalar")
+                            .font(.system(size: 13, weight: activeTab == "existing" ? .bold : .medium))
+                            .foregroundColor(activeTab == "existing" ? .white : (repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#57534E")))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .background(activeTab == "existing" ? Color(hex: "#A16207") : Color.clear)
+                            .cornerRadius(8)
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.96))
+
+                    Button(action: {
+                        Haptics.light()
+                        activeTab = "upload"
+                    }) {
+                        Text("Yeni Yükle")
+                            .font(.system(size: 13, weight: activeTab == "upload" ? .bold : .medium))
+                            .foregroundColor(activeTab == "upload" ? .white : (repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#57534E")))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .background(activeTab == "upload" ? Color(hex: "#A16207") : Color.clear)
+                            .cornerRadius(8)
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.96))
+                }
+                .padding(3)
+                .background(repo.isDarkMode ? Color(hex: "#262320") : Color(hex: "#EFECE6"))
+                .cornerRadius(10)
+
+                // Tab Content
+                if activeTab == "upload" {
+                    // Upload Drop Area Card (1:1 Android)
+                    VStack(spacing: 10) {
+                        Image(systemName: "icloud.and.arrow.up.fill")
+                            .font(.system(size: 38))
+                            .foregroundColor(Color(hex: "#A16207"))
+
+                        Text("Dosyaları Yükle")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(repo.isDarkMode ? Color(hex: "#F5F5F4") : Color(hex: "#2C1810"))
+
+                        Text("Dosya seçmek için tıklayın")
+                            .font(.system(size: 12))
+                            .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 150)
+                    .background(repo.isDarkMode ? Color(hex: "#292524") : Color.white)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(
+                                repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#D6D1C7"),
+                                style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                            )
+                    )
+                } else {
+                    // Var Olan Medyalar Listesi
+                    VStack(spacing: 8) {
+                        if mediaList.isEmpty {
+                            VStack(spacing: 6) {
+                                Image(systemName: "photo.on.rectangle")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+                                Text("Projede henüz kayıtlı medya bulunmuyor.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#78716C"))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 150)
+                            .background(repo.isDarkMode ? Color(hex: "#292524") : Color.white)
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#D6D1C7"), lineWidth: 1))
+                        } else {
+                            ScrollView {
+                                LazyVStack(spacing: 6) {
+                                    ForEach(mediaList) { item in
+                                        let isSel = selectedMediaIds.contains(item.id)
+                                        Button(action: {
+                                            if isSel { selectedMediaIds.remove(item.id) }
+                                            else { selectedMediaIds.insert(item.id) }
+                                        }) {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: isSel ? "checkmark.circle.fill" : "circle")
+                                                    .foregroundColor(isSel ? Color(hex: "#A16207") : Color.gray)
+                                                Text(item.name)
+                                                    .font(.system(size: 12, weight: .medium))
+                                                    .foregroundColor(repo.isDarkMode ? .white : Color(hex: "#2C1810"))
+                                                    .lineLimit(1)
+                                                Spacer()
+                                            }
+                                            .padding(10)
+                                            .background(isSel ? Color(hex: "#A16207").opacity(0.12) : (repo.isDarkMode ? Color(hex: "#292524") : Color.white))
+                                            .cornerRadius(8)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                            .frame(height: 150)
+                        }
+                    }
+                }
+
+                // Action Buttons (1:1 Android)
+                VStack(spacing: 8) {
+                    Button(action: {
+                        Haptics.light()
+                        onDismiss()
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "paperclip")
+                            Text("İliştir")
+                        }
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Color(hex: "#A16207"))
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.96))
+
+                    Button(action: onDismiss) {
+                        Text("Kapat")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(repo.isDarkMode ? Color(hex: "#F5F5F4") : Color(hex: "#2C1810"))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(repo.isDarkMode ? Color(hex: "#292524") : Color.white)
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#D6D1C7"), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.96))
+                }
             }
-
-            Text(item.name.isEmpty ? "Ek Dosya" : item.name)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
-                .lineLimit(1)
-
-            Text(item.mimeType.uppercased())
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+            .padding(18)
+            .background(repo.isDarkMode ? Color(hex: "#1E1B18") : Color(hex: "#FAF8F5"))
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(repo.isDarkMode ? Color(hex: "#44403C") : Color(hex: "#E2DDD5"), lineWidth: 1.5)
+            )
+            .shadow(color: Color.black.opacity(0.25), radius: 18, x: 0, y: 8)
+            .padding(.horizontal, 16)
         }
-        .padding(12)
-        .neumorphicCard(isDark: repo.isDarkMode)
     }
 }

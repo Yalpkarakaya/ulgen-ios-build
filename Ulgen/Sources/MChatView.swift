@@ -2,9 +2,10 @@ import SwiftUI
 
 public struct MChatView: View {
     public var projectId: String
+    public var onDismiss: () -> Void = {}
+    
     @ObservedObject var repo = ProjectRepository.shared
-    @Environment(\.dismiss) private var dismiss
-
+    @State private var activeSessionId: String? = nil
     @State private var inputText: String = ""
     @State private var isGenerating: Bool = false
 
@@ -12,196 +13,237 @@ public struct MChatView: View {
         repo.projects.first(where: { $0.id == projectId })
     }
 
-    private var messages: [ChatMessage] {
-        project?.chatSessions.first?.messages ?? []
+    private var sessions: [ChatSession] {
+        project?.chatSessions ?? []
+    }
+
+    private var activeSession: ChatSession? {
+        sessions.first(where: { $0.id == activeSessionId })
+    }
+
+    public init(projectId: String, onDismiss: @escaping () -> Void = {}) {
+        self.projectId = projectId
+        self.onDismiss = onDismiss
     }
 
     public var body: some View {
-        NavigationStack {
-            ZStack {
-                AppTheme.bg(isDark: repo.isDarkMode)
-                    .ignoresSafeArea()
+        ZStack {
+            // Dark Backdrop Scrim
+            Color.black.opacity(0.65)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onDismiss()
+                }
 
-                VStack(spacing: 0) {
-                    // Chat Messages Scroll
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 12) {
-                                if messages.isEmpty {
-                                    aiGreetingCard
-                                } else {
-                                    ForEach(messages) { msg in
-                                        messageBubble(msg)
-                                            .id(msg.id)
-                                    }
-                                }
-
-                                if isGenerating {
-                                    HStack {
-                                        ProgressView()
-                                            .tint(AppTheme.primary)
-                                        Text("Ülgen AI yanıt üretiyor...")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-                                    }
-                                    .padding(.vertical, 8)
-                                }
-                            }
-                            .padding(16)
+            // Centered Modal Dialog Card (1:1 Android MChatModal)
+            VStack(alignment: .leading, spacing: 14) {
+                if let session = activeSession {
+                    // EKRAN 2: SOHBET DETAYI / MESAJLAŞMA
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            Haptics.light()
+                            activeSessionId = nil
+                        }) {
+                            Image(systemName: "arrow.backward")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                                .frame(width: 32, height: 32)
                         }
-                        .onChange(of: messages.count) { _ in
-                            if let last = messages.last {
-                                withAnimation {
-                                    proxy.scrollTo(last.id, anchor: .bottom)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(session.title.isEmpty ? "Sohbet" : session.title)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                                .lineLimit(1)
+                            Text("\(session.messages.count) mesaj")
+                                .font(.system(size: 11))
+                                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                        }
+
+                        Spacer()
+
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                                .frame(width: 28, height: 28)
+                                .background(repo.isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+                                .clipShape(Circle())
+                        }
+                    }
+
+                    Divider()
+
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(session.messages) { msg in
+                                HStack {
+                                    if msg.role == "user" {
+                                        Spacer()
+                                        Text(msg.text)
+                                            .font(.system(size: 13.5))
+                                            .foregroundColor(.white)
+                                            .padding(10)
+                                            .background(Color(hex: "#8A4B1A"))
+                                            .cornerRadius(12)
+                                    } else {
+                                        Text(msg.text)
+                                            .font(.system(size: 13.5))
+                                            .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
+                                            .padding(10)
+                                            .background(repo.isDarkMode ? Color(hex: "#282420") : Color(hex: "#F1F5F9"))
+                                            .cornerRadius(12)
+                                        Spacer()
+                                    }
                                 }
                             }
                         }
                     }
+                    .frame(maxHeight: 380)
 
-                    Divider().background(AppTheme.border(isDark: repo.isDarkMode))
-
-                    // Quick Prompt Suggestions
-                    quickPromptsBar
-
-                    // Input Bar
                     HStack(spacing: 8) {
-                        TextField("Mühendislik sorusu veya analiz isteği...", text: $inputText)
-                            .font(.system(size: 14))
-                            .foregroundColor(AppTheme.textBody(isDark: repo.isDarkMode))
+                        TextField("Bir soru sorun...", text: $inputText)
+                            .font(.system(size: 13.5))
                             .padding(10)
-                            .background(AppTheme.card(isDark: repo.isDarkMode))
-                            .cornerRadius(10)
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1))
+                            .background(repo.isDarkMode ? Color(hex: "#262320") : Color.white)
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.borderSubtle(isDark: repo.isDarkMode), lineWidth: 1))
 
                         Button(action: sendMessage) {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(.system(size: 32))
-                                .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : AppTheme.primary)
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white)
+                                .frame(width: 36, height: 36)
+                                .background(Color(hex: "#8A4B1A"))
+                                .cornerRadius(8)
+                        }
+                    }
+                } else {
+                    // EKRAN 1: SOHBET LİSTESİ GÖRÜNÜMÜ (1:1 Android MChatModal)
+                    HStack(alignment: .center, spacing: 8) {
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(repo.isDarkMode ? Color(hex: "#A8A29E") : Color(hex: "#64748B"))
+                                .frame(width: 32, height: 32)
                         }
                         .buttonStyle(.scaleSpring(scale: 0.90))
-                        .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGenerating)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("AI Medya Sohbetleri")
+                                .font(.system(size: 17, weight: .heavy))
+                                .foregroundColor(repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B"))
+
+                            Text("\(sessions.count) sohbet mevcut")
+                                .font(.system(size: 11.5))
+                                .foregroundColor(repo.isDarkMode ? Color(hex: "#9E988F") : Color(hex: "#64748B"))
+                        }
+
+                        Spacer()
                     }
-                    .padding(12)
-                    .background(AppTheme.card(isDark: repo.isDarkMode))
+
+                    // + Yeni Sohbet Başlat Butonu (1:1 Android)
+                    Button(action: {
+                        Haptics.light()
+                        if let p = project {
+                            let newSession = ChatSession(title: "Yeni Sohbet")
+                            repo.addChatSession(projectId: p.id, session: newSession)
+                            activeSessionId = newSession.id
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 13, weight: .bold))
+                            Text("Yeni Sohbet Başlat")
+                                .font(.system(size: 13.5, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 42)
+                        .background(Color(hex: "#8A4B1A"))
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(.scaleSpring(scale: 0.96))
+
+                    // Empty State Card (1:1 Android)
+                    if sessions.isEmpty {
+                        VStack(spacing: 12) {
+                            Spacer().frame(height: 120)
+
+                            Image(systemName: "bubble.left")
+                                .font(.system(size: 46))
+                                .foregroundColor(repo.isDarkMode ? Color(hex: "#64748B") : Color(hex: "#94A3B8"))
+
+                            Text("Henüz bir sohbet yok.")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B"))
+
+                            Text("Yukarıdan yeni bir sohbet başlatarak projeniz veya dosyalarınız hakkında AI ile konuşun.")
+                                .font(.system(size: 12))
+                                .foregroundColor(repo.isDarkMode ? Color(hex: "#9E988F") : Color(hex: "#64748B"))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+
+                            Spacer().frame(height: 120)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .background(repo.isDarkMode ? Color(hex: "#24201D") : Color(hex: "#F8FAFC"))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(repo.isDarkMode ? Color(hex: "#38332E") : Color(hex: "#E2E8F0"), lineWidth: 1)
+                        )
+                    } else {
+                        ScrollView {
+                            LazyVStack(spacing: 8) {
+                                ForEach(sessions) { s in
+                                    Button(action: {
+                                        activeSessionId = s.id
+                                    }) {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(s.title)
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
+                                                Text("\(s.messages.count) mesaj")
+                                                    .font(.system(size: 11))
+                                                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                                            }
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
+                                        }
+                                        .padding(12)
+                                        .background(AppTheme.card(isDark: repo.isDarkMode))
+                                        .cornerRadius(10)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .frame(height: 320)
+                    }
                 }
             }
-            .navigationTitle("MChat AI Asistanı")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Kapat") { dismiss() }
-                        .foregroundColor(AppTheme.primary)
-                        .buttonStyle(.scaleSpring(scale: 0.92))
-                }
-            }
+            .padding(18)
+            .background(repo.isDarkMode ? Color(hex: "#1E1B18") : Color(hex: "#FFFFFF"))
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(repo.isDarkMode ? Color(hex: "#38332E") : Color(hex: "#E5E0D8"), lineWidth: 1.5)
+            )
+            .shadow(color: Color.black.opacity(0.3), radius: 18, x: 0, y: 8)
+            .padding(.horizontal, 16)
         }
-    }
-
-    private var aiGreetingCard: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 36))
-                .foregroundColor(AppTheme.primary)
-
-            Text("Proje Bazlı AI Danışmanı")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(AppTheme.textHeading(isDark: repo.isDarkMode))
-
-            Text("Bu projeye ait şematik, kod, görev ağacı ve malzeme gereksinimlerini analiz edebilirim.")
-                .font(.system(size: 13))
-                .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 20)
-        }
-        .padding(24)
-        .neumorphicCard(isDark: repo.isDarkMode)
-    }
-
-    private func messageBubble(_ msg: ChatMessage) -> some View {
-        HStack {
-            if msg.role == "user" { Spacer() }
-
-            VStack(alignment: msg.role == "user" ? .trailing : .leading, spacing: 4) {
-                Text(msg.content)
-                    .font(.system(size: 14))
-                    .foregroundColor(msg.role == "user" ? .white : AppTheme.textHeading(isDark: repo.isDarkMode))
-                    .padding(12)
-                    .background(
-                        msg.role == "user"
-                            ? AppTheme.primary
-                            : AppTheme.card(isDark: repo.isDarkMode)
-                    )
-                    .cornerRadius(12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(msg.role == "user" ? AppTheme.primary : AppTheme.border(isDark: repo.isDarkMode), lineWidth: 1)
-                    )
-
-                Text(Date(timeIntervalSince1970: Double(msg.timestamp) / 1000).formatted(date: .omitted, time: .shortened))
-                    .font(.system(size: 10))
-                    .foregroundColor(AppTheme.textMuted(isDark: repo.isDarkMode))
-                    .padding(.horizontal, 4)
-            }
-            .frame(maxWidth: 300, alignment: msg.role == "user" ? .trailing : .leading)
-
-            if msg.role == "assistant" { Spacer() }
-        }
-    }
-
-    private var quickPromptsBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                quickPromptChip("BOM Malzeme Listesi") {
-                    inputText = "Bu projenin şematik ve güç katı gereksinimlerine göre kritik bileşen BOM listesini oluştur."
-                    sendMessage()
-                }
-                quickPromptChip("Aşamalara Görev Böl") {
-                    inputText = "Mevcut aşamalara eklenebilecek test ve doğrulama alt görevlerini listele."
-                    sendMessage()
-                }
-                quickPromptChip("Hata ve Risk Analizi") {
-                    inputText = "Bu tasarımda karşılaşılabilecek termal, parazitik ve EMI risklerini analiz et."
-                    sendMessage()
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-        }
-    }
-
-    private func quickPromptChip(_ label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(AppTheme.primary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(AppTheme.primary.opacity(0.12))
-                .cornerRadius(16)
-        }
-        .buttonStyle(.scaleSpring(scale: 0.94))
     }
 
     private func sendMessage() {
-        guard let p = project else { return }
-        let prompt = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else { return }
+        guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let p = project,
+              let sId = activeSessionId else { return }
 
+        let userMsg = ChatMessage(role: "user", text: inputText)
         inputText = ""
-        repo.addChatMessage(projectId: p.id, role: "user", content: prompt)
-        Haptics.light()
-
-        isGenerating = true
-        AiService.shared.sendMessage(project: p, userMessage: prompt) { result in
-            isGenerating = false
-            switch result {
-            case .success(let answer):
-                repo.addChatMessage(projectId: p.id, role: "assistant", content: answer)
-                Haptics.success()
-            case .failure(let err):
-                repo.addChatMessage(projectId: p.id, role: "assistant", content: "AI Hatası: \(err.localizedDescription)")
-                Haptics.error()
-            }
-        }
+        repo.addChatMessage(projectId: p.id, sessionId: sId, message: userMsg)
     }
 }

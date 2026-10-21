@@ -58,7 +58,7 @@ public struct DashboardView: View {
         } else if initialScreen == "dual_zipper" {
             _showSortPanel = State(initialValue: true)
             _showFilterPanel = State(initialValue: true)
-        } else if initialScreen == "drawer" {
+        } else if initialScreen == "drawer" || initialScreen == "coming_soon" {
             _isDrawerOpen = State(initialValue: true)
         } else if initialScreen == "detail" {
             _selectedProjectId = State(initialValue: "p-kotlin-compose")
@@ -534,11 +534,14 @@ public struct DashboardView: View {
             repo.sortOption = id
         }) {
             Text(label)
-                .font(.system(size: isDual ? 10.5 : 12, weight: isSelected ? .bold : .medium))
+                .font(.system(size: isDual ? 9.5 : 12, weight: isSelected ? .bold : .medium))
                 .foregroundColor(isSelected ? (repo.isDarkMode ? Color(hex: "#111215") : .white) : AppTheme.textBody(isDark: repo.isDarkMode))
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .allowsTightening(true)
+                .padding(.horizontal, isDual ? 2 : 4)
                 .frame(maxWidth: .infinity)
-                .frame(height: 30)
+                .frame(height: 28)
                 .background(isSelected ? (repo.isDarkMode ? Color(hex: "#E4E4E7") : Color(hex: "#26272B")) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
                 .cornerRadius(8)
                 .overlay(
@@ -580,17 +583,19 @@ public struct DashboardView: View {
             Haptics.light()
             repo.selectedCategory = (repo.selectedCategory == cat.id) ? "all" : cat.id
         }) {
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 Image(systemName: categoryIconName(cat.id))
-                    .font(.system(size: 11))
+                    .font(.system(size: isDual ? 9.5 : 11))
                     .foregroundColor(cColor)
                 Text(cat.label)
-                    .font(.system(size: isDual ? 10.5 : 11.5, weight: isSel ? .bold : .medium))
+                    .font(.system(size: isDual ? 9.5 : 11.5, weight: isSel ? .bold : .medium))
                     .foregroundColor(isSel ? (repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B")) : AppTheme.textBody(isDark: repo.isDarkMode))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .allowsTightening(true)
                 Spacer()
             }
-            .padding(.horizontal, 6)
+            .padding(.horizontal, isDual ? 4 : 6)
             .frame(height: 28)
             .background(isSel ? cColor.opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
             .cornerRadius(7)
@@ -641,8 +646,43 @@ public struct DashboardView: View {
             Haptics.light()
             repo.selectedPriority = (repo.selectedPriority == prio.id) ? "all" : prio.id
         }) {
-            HStack(spacing: 5) {
+            HStack(spacing: 3) {
                 // Signal bars
+                HStack(alignment: .bottom, spacing: 1.5) {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(1 <= bars ? pColor : Color.gray.opacity(0.3))
+                        .frame(width: 2, height: 4.5)
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(2 <= bars ? pColor : Color.gray.opacity(0.3))
+                        .frame(width: 2, height: 7)
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(3 <= bars ? pColor : Color.gray.opacity(0.3))
+                        .frame(width: 2, height: 9.5)
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(4 <= bars ? pColor : Color.gray.opacity(0.3))
+                        .frame(width: 2, height: 12)
+                }
+                .frame(width: 14)
+
+                Text(prio.label)
+                    .font(.system(size: isDual ? 9.5 : 11.5, weight: isSel ? .bold : .medium))
+                    .foregroundColor(isSel ? (repo.isDarkMode ? Color(hex: "#FAF8F5") : Color(hex: "#1E293B")) : AppTheme.textBody(isDark: repo.isDarkMode))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .allowsTightening(true)
+                Spacer()
+            }
+            .padding(.horizontal, isDual ? 4 : 6)
+            .frame(height: 28)
+            .background(isSel ? pColor.opacity(0.18) : (repo.isDarkMode ? Color(hex: "#26272B") : Color(hex: "#EAE6DF")))
+            .cornerRadius(7)
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(isSel ? pColor : (repo.isDarkMode ? Color(hex: "#383A42") : Color(hex: "#D5D0C5")), lineWidth: isSel ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.scaleSpring(scale: 0.96))
+    }
                 HStack(alignment: .bottom, spacing: 2) {
                     RoundedRectangle(cornerRadius: 1)
                         .fill(1 <= bars ? pColor : Color.gray.opacity(0.3))

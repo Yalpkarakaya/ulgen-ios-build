@@ -29,7 +29,7 @@ struct UlgenApp: App {
                     }
                 } else if screenArg == "coming_soon" {
                     ZStack {
-                        DashboardView()
+                        DashboardView(initialScreen: "coming_soon")
                         ComingSoonModal(
                             featureName: "İstatistikler",
                             isDarkMode: repo.isDarkMode,
